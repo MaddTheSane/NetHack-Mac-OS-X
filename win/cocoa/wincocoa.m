@@ -122,14 +122,10 @@ cocoa_outrip,
 cocoa_preference_update,
 genl_getmsghistory,
 genl_putmsghistory,
-#ifdef STATUS_VIA_WINDOWPORT
-hup_void_ndecl,
-hup_void_ndecl,
-genl_status_enablefield, hup_status_update,
-#ifdef STATUS_HILITES
-genl_status_threshold,
-#endif
-#endif
+genl_status_init,
+genl_status_finish,
+genl_status_enablefield,
+genl_status_update,
 genl_can_suspend_no,
 };
 
@@ -731,7 +727,7 @@ void cocoa_putmixed(winid wid, int attr, const char* text)
 static void bail(const char *mesg)
 {
     cocoa_exit_nhwindows(mesg);
-    terminate(EXIT_SUCCESS);
+    nh_terminate(EXIT_SUCCESS);
 }
 
 // from tty port

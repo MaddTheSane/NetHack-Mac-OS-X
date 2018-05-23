@@ -1,3 +1,7 @@
+/* NetHack 3.6  stubs.c       $NHDT-Date: 1524689357 2018/04/25 20:49:17 $  $NHDT-Branch: NetHack-3.6.0 $:$NHDT-Revision: 1.3 $ */
+/*      Copyright (c) 2015 by Michael Allison              */
+/* NetHack may be freely redistributed.  See license for details. */
+
 #include "hack.h"
 
 #ifdef GUISTUB
@@ -7,6 +11,7 @@
 
 int GUILaunched;
 struct window_procs mswin_procs = { "guistubs" };
+
 void
 mswin_destroy_reg()
 {
@@ -21,9 +26,7 @@ mswin_destroy_reg()
 extern char default_window_sys[];
 
 int
-main(argc, argv)
-int argc;
-char *argv[];
+main(int argc, char *argv[])
 {
     boolean resuming;
 
@@ -36,6 +39,7 @@ char *argv[];
     return 0;
 }
 #endif
+
 #endif /* GUISTUB */
 
 /* =============================================== */
@@ -43,34 +47,33 @@ char *argv[];
 #ifdef TTYSTUB
 
 #include "hack.h"
+#include "win32api.h"
 
+HANDLE hConIn;
+HANDLE hConOut;
 int GUILaunched;
 struct window_procs tty_procs = { "ttystubs" };
 
 void
-win_tty_init(dir)
-int dir;
+win_tty_init(int dir)
 {
     return;
 }
 
 void
-nttty_open(mode)
-int mode;
+nttty_open(int mode)
 {
     return;
 }
 
 void
-xputc(ch)
-char ch;
+xputc(char ch)
 {
     return;
 }
 
 void
-xputs(s)
-const char *s;
+xputs(const char *s)
 {
     return;
 }
@@ -137,21 +140,21 @@ load_keyboard_handler()
  * system isn't initialized yet
  */
 void msmsg
-VA_DECL(const char *, fmt)
+(const char *fmt, ...)
 {
-    VA_START(fmt);
-    VA_INIT(fmt, const char *);
-    VA_END();
+    va_list the_args;
+    va_start(the_args, fmt);
+    va_end(the_args);
     return;
 }
 
 /*VARARGS1*/
 void nttty_error
-VA_DECL(const char *, s)
+(const char *s, ...)
 {
-    VA_START(s);
-    VA_INIT(s, const char *);
-    VA_END();
+    va_list the_args;
+    va_start(the_args, s);
+    va_end(the_args);
     return;
 }
 

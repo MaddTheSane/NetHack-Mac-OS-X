@@ -1,12 +1,11 @@
-/* NetHack 3.6	makemon.c	$NHDT-Date: 1449269917 2015/12/04 22:58:37 $  $NHDT-Branch: NetHack-3.6.0 $:$NHDT-Revision: 1.105 $ */
+/* NetHack 3.6	makemon.c	$NHDT-Date: 1495237801 2017/05/19 23:50:01 $  $NHDT-Branch: NetHack-3.6.0 $:$NHDT-Revision: 1.116 $ */
 /* Copyright (c) Stichting Mathematisch Centrum, Amsterdam, 1985. */
+/*-Copyright (c) Robert Patrick Rankin, 2012. */
 /* NetHack may be freely redistributed.  See license for details. */
 
 #include "hack.h"
 
 #include <ctype.h>
-
-STATIC_VAR NEARDATA struct monst zeromonst;
 
 /* this assumes that a human quest leader or nemesis is an archetype
    of the corresponding role; that isn't so for some roles (tourist
@@ -263,6 +262,58 @@ m_initweap(register struct monst *mtmp)
         } else if (mm == PM_NINJA) { /* extra quest villains */
             (void) mongets(mtmp, rn2(4) ? SHURIKEN : DART);
             (void) mongets(mtmp, rn2(4) ? SHORT_SWORD : AXE);
+        } else if (ptr->msound == MS_GUARDIAN) {
+            /* quest "guardians" */
+            switch (mm) {
+            case PM_STUDENT:
+            case PM_ATTENDANT:
+            case PM_ABBOT:
+            case PM_ACOLYTE:
+            case PM_GUIDE:
+            case PM_APPRENTICE:
+                if (rn2(2))
+                    (void) mongets(mtmp, rn2(3) ? DAGGER : KNIFE);
+                if (rn2(5))
+                    (void) mongets(mtmp, rn2(3) ? LEATHER_JACKET : LEATHER_CLOAK);
+                if (rn2(3))
+                    (void) mongets(mtmp, rn2(3) ? LOW_BOOTS : HIGH_BOOTS);
+                if (rn2(3))
+                    (void) mongets(mtmp, POT_HEALING);
+                break;
+            case PM_CHIEFTAIN:
+            case PM_PAGE:
+            case PM_ROSHI:
+            case PM_WARRIOR:
+                (void) mongets(mtmp, rn2(3) ? LONG_SWORD : SHORT_SWORD);
+                (void) mongets(mtmp, rn2(3) ? CHAIN_MAIL : LEATHER_ARMOR);
+                if (rn2(2))
+                    (void) mongets(mtmp, rn2(2) ? LOW_BOOTS : HIGH_BOOTS);
+                if (!rn2(3))
+                    (void) mongets(mtmp, LEATHER_CLOAK);
+                if (!rn2(3)) {
+                    (void) mongets(mtmp, BOW);
+                    m_initthrow(mtmp, ARROW, 12);
+                }
+                break;
+            case PM_HUNTER:
+                (void) mongets(mtmp, rn2(3) ? SHORT_SWORD : DAGGER);
+                if (rn2(2))
+                    (void) mongets(mtmp, rn2(2) ? LEATHER_JACKET : LEATHER_ARMOR);
+                (void) mongets(mtmp, BOW);
+                m_initthrow(mtmp, ARROW, 12);
+                break;
+            case PM_THUG:
+                (void) mongets(mtmp, CLUB);
+                (void) mongets(mtmp, rn2(3) ? DAGGER : KNIFE);
+                if (rn2(2))
+                    (void) mongets(mtmp, LEATHER_GLOVES);
+                (void) mongets(mtmp, rn2(2) ? LEATHER_JACKET : LEATHER_ARMOR);
+                break;
+            case PM_NEANDERTHAL:
+                (void) mongets(mtmp, CLUB);
+                (void) mongets(mtmp, LEATHER_ARMOR);
+                break;
+            }
         }
         break;
 
@@ -589,6 +640,8 @@ m_initinv(register struct monst *mtmp)
             else if (mac < 10 && rn2(2))
                 mac += 1 + mongets(mtmp, LEATHER_CLOAK);
 
+            nhUse(mac); /* suppress 'dead increment' from static analyzer */
+
             if (ptr != &mons[PM_GUARD] && ptr != &mons[PM_WATCHMAN]
                 && ptr != &mons[PM_WATCH_CAPTAIN]) {
                 if (!rn2(3))
@@ -605,10 +658,13 @@ m_initinv(register struct monst *mtmp)
             /* MAJOR fall through ... */
             case 0:
                 (void) mongets(mtmp, WAN_MAGIC_MISSILE);
+                /*FALLTHRU*/
             case 1:
                 (void) mongets(mtmp, POT_EXTRA_HEALING);
+                /*FALLTHRU*/
             case 2:
                 (void) mongets(mtmp, POT_HEALING);
+                /*FALLTHRU*/
             case 3:
                 (void) mongets(mtmp, WAN_STRIKING);
             }
@@ -758,6 +814,7 @@ clone_mon(struct monst *mon,
     /* Max HP the same, but current HP halved for both.  The caller
      * might want to override this by halving the max HP also.
      * When current HP is odd, the original keeps the extra point.
+     * We know original has more than 1 HP, so both end up with at least 1.
      */
     m2->mhpmax = mon->mhpmax;
     m2->mhp = mon->mhp / 2;
@@ -835,7 +892,7 @@ propagate(int mndx, boolean tally, boolean ghostly)
     result = (((int) mvitals[mndx].born < lim) && !gone) ? TRUE : FALSE;
 
     /* if it's unique, don't ever make it again */
-    if (mons[mndx].geno & G_UNIQ)
+    if ((mons[mndx].geno & G_UNIQ) && mndx != PM_HIGH_PRIEST)
         mvitals[mndx].mvflags |= G_EXTINCT;
 
     if (mvitals[mndx].born < 255 && tally
@@ -1277,6 +1334,13 @@ makemon(register struct permonst *ptr, register int x, register int y, int mmfla
             m_initweap(mtmp); /* equip with weapons / armor */
         m_initinv(mtmp); /* add on a few special items incl. more armor */
         m_dowear(mtmp, TRUE);
+
+        if (!rn2(100) && is_domestic(ptr)
+            && can_saddle(mtmp) && !which_armor(mtmp, W_SADDLE)) {
+            struct obj *otmp = mksobj(SADDLE, TRUE, FALSE);
+            put_saddle_on_mon(otmp, mtmp);
+        }
+
     } else {
         /* no initial inventory is allowed */
         if (mtmp->minvent)
@@ -1302,6 +1366,11 @@ int
 mbirth_limit(mndx)
 int mndx;
 {
+    /* There is an implicit limit of 4 for "high priest of <deity>",
+     * but aligned priests can grow into high priests, thus they aren't
+     * really limited to 4, so leave the default amount in place for them.
+     */
+
     /* assert(MAXMONNO < 255); */
     return (mndx == PM_NAZGUL ? 9 : mndx == PM_ERINYS ? 3 : MAXMONNO);
 }
@@ -1436,7 +1505,7 @@ rndmonst()
             rndmonst_state.mchoices[mndx] = 0;
             if (tooweak(mndx, minmlev) || toostrong(mndx, maxmlev))
                 continue;
-            if (upper && !isupper(def_monsyms[(int) (ptr->mlet)].sym))
+            if (upper && !isupper((uchar) def_monsyms[(int) ptr->mlet].sym))
                 continue;
             if (elemlevel && wrong_elem_type(ptr))
                 continue;
@@ -1634,6 +1703,7 @@ struct permonst *
 grow_up(struct monst *mtmp, struct monst *victim)
 {
     int oldtype, newtype, max_increase, cur_increase, lev_limit, hp_threshold;
+    unsigned fem;
     struct permonst *ptr = mtmp->data;
 
     /* monster died after killing enemy but before calling this function */
@@ -1696,6 +1766,9 @@ grow_up(struct monst *mtmp, struct monst *victim)
 
     if ((int) ++mtmp->m_lev >= mons[newtype].mlevel && newtype != oldtype) {
         ptr = &mons[newtype];
+        /* new form might force gender change */
+        fem = is_male(ptr) ? 0 : is_female(ptr) ? 1 : mtmp->female;
+
         if (mvitals[newtype].mvflags & G_GENOD) { /* allow G_EXTINCT */
             if (canspotmon(mtmp))
                 pline("As %s grows up into %s, %s %s!", mon_nam(mtmp),
@@ -1705,14 +1778,32 @@ grow_up(struct monst *mtmp, struct monst *victim)
             mondied(mtmp);
             return (struct permonst *) 0;
         } else if (canspotmon(mtmp)) {
+            char buf[BUFSZ];
+
+            /* 3.6.1:
+             * Temporary (?) hack to fix growing into opposite gender.
+             */
+            Sprintf(buf, "%s%s",
+                    /* deal with female gnome becoming a gnome lord */
+                    (mtmp->female && !fem) ? "male "
+                        /* or a male gnome becoming a gnome lady
+                           (can't happen with 3.6.0 mons[], but perhaps
+                           slightly less sexist if prepared for it...) */
+                      : (fem && !mtmp->female) ? "female " : "",
+                    ptr->mname);
             pline("%s %s %s.", Monnam(mtmp),
-                  humanoid(ptr) ? "becomes" : "grows up into",
-                  an(ptr->mname));
+                  (fem != mtmp->female) ? "changes into"
+                                        : humanoid(ptr) ? "becomes"
+                                                        : "grows up into",
+                  an(buf));
         }
         set_mon_data(mtmp, ptr, 1);    /* preserve intrinsics */
         newsym(mtmp->mx, mtmp->my);    /* color may change */
         lev_limit = (int) mtmp->m_lev; /* never undo increment */
+
+        mtmp->female = fem; /* gender might be changing */
     }
+
     /* sanity checks */
     if ((int) mtmp->m_lev > lev_limit) {
         mtmp->m_lev--; /* undo increment */
@@ -1946,7 +2037,7 @@ set_mimic_sym(register struct monst *mtmp)
     struct obj *otmp;
     int mx, my;
 
-    if (!mtmp)
+    if (!mtmp || Protection_from_shape_changers)
         return;
     mx = mtmp->mx;
     my = mtmp->my;

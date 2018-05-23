@@ -1,4 +1,4 @@
-/* NetHack 3.6	wintext.c	$NHDT-Date: 1432512807 2015/05/25 00:13:27 $  $NHDT-Branch: master $:$NHDT-Revision: 1.14 $ */
+/* NetHack 3.6	wintext.c	$NHDT-Date: 1450453309 2015/12/18 15:41:49 $  $NHDT-Branch: NetHack-3.6.0 $:$NHDT-Revision: 1.15 $ */
 /* Copyright (c) Dean Luick, 1992				  */
 /* NetHack may be freely redistributed.  See license for details. */
 
@@ -335,7 +335,7 @@ destroy_text_window(struct xwindow *wp)
     if (text_info->blocked || text_info->destroy_on_ack) {
         XtDestroyWidget(wp->popup);
         free_text_buffer(&text_info->text);
-        free((genericptr_t) text_info), wp->text_information = 0;
+        free((genericptr_t) text_info); wp->text_information = 0;
         wp->type = NHW_NONE; /* allow reuse */
     } else {
         text_info->destroy_on_ack = TRUE; /* destroy on next ACK */
@@ -470,7 +470,7 @@ calculate_rip_text(int how, time_t when)
     /* Put $ on stone */
     Sprintf(rip_line[GOLD_LINE], "%ld Au", done_money);
     /* Put together death description */
-    formatkiller(buf, sizeof buf, how);
+    formatkiller(buf, sizeof buf, how, FALSE);
 
     /* Put death type on stone */
     for (line = DEATH_LINE, dpx = buf; line < YEAR_LINE; line++) {

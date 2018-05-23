@@ -1,5 +1,6 @@
-/* NetHack 3.6	getline.c	$NHDT-Date: 1432512813 2015/05/25 00:13:33 $  $NHDT-Branch: master $:$NHDT-Revision: 1.28 $ */
+/* NetHack 3.6	getline.c	$NHDT-Date: 1523619111 2018/04/13 11:31:51 $  $NHDT-Branch: NetHack-3.6.0 $:$NHDT-Revision: 1.35 $ */
 /* Copyright (c) Stichting Mathematisch Centrum, Amsterdam, 1985. */
+/*-Copyright (c) Michael Allison, 2006. */
 /* NetHack may be freely redistributed.  See license for details. */
 
 #include "hack.h"
@@ -14,6 +15,7 @@
 #include "func_tab.h"
 
 char morc = 0; /* tell the outside world what char you chose */
+STATIC_VAR boolean suppress_history;
 STATIC_DCL boolean ext_cmd_getlin_hook(char *);
 
 typedef boolean (*getlin_hook_proc)(char *);
@@ -32,6 +34,7 @@ extern char erase_char, kill_char; /* from appropriate tty.c file */
 void
 tty_getlin(const char *query, register char *bufp)
 {
+    suppress_history = FALSE;
     hooked_tty_getlin(query, bufp, (getlin_hook_proc) 0);
 }
 
@@ -48,8 +51,19 @@ hooked_tty_getlin(const char *query, register char *bufp, getlin_hook_proc hook)
     cw->flags &= ~WIN_STOP;
     ttyDisplay->toplin = 3; /* special prompt state */
     ttyDisplay->inread++;
-    pline("%s ", query);
-    *obufp = 0;
+
+    /* issue the prompt */
+    custompline(OVERRIDE_MSGTYPE | SUPPRESS_HISTORY, "%s ", query);
+#ifdef EDIT_GETLIN
+    /* bufp is input/output; treat current contents (presumed to be from
+       previous getlin()) as default input */
+    addtopl(obufp);
+    bufp = eos(obufp);
+#else
+    /* !EDIT_GETLIN: bufp is output only; init it to empty */
+    *bufp = '\0';
+#endif
+
     for (;;) {
         (void) fflush(stdout);
         Strcat(strcat(strcpy(toplines, query), " "), obufp);
@@ -76,6 +90,7 @@ hooked_tty_getlin(const char *query, register char *bufp, getlin_hook_proc hook)
         if (c == '\020') { /* ctrl-P */
             if (iflags.prevmsg_window != 's') {
                 int sav = ttyDisplay->inread;
+
                 ttyDisplay->inread = 0;
                 (void) tty_doprev_message();
                 ttyDisplay->inread = sav;
@@ -120,19 +135,15 @@ hooked_tty_getlin(const char *query, register char *bufp, getlin_hook_proc hook)
 #endif                            /* NEWAUTOCOMP */
             } else
                 tty_nhbell();
-#if defined(apollo)
         } else if (c == '\n' || c == '\r') {
-#else
-        } else if (c == '\n') {
-#endif
 #ifndef NEWAUTOCOMP
             *bufp = 0;
 #endif /* not NEWAUTOCOMP */
             break;
         } else if (' ' <= (unsigned char) c && c != '\177'
+                   /* avoid isprint() - some people don't have it
+                      ' ' is not always a printing char */
                    && (bufp - obufp < BUFSZ - 1 && bufp - obufp < COLNO)) {
-/* avoid isprint() - some people don't have it
-   ' ' is not always a printing char */
 #ifdef NEWAUTOCOMP
             char *i = eos(bufp);
 
@@ -160,7 +171,7 @@ hooked_tty_getlin(const char *query, register char *bufp, getlin_hook_proc hook)
 #endif /* NEWAUTOCOMP */
             }
         } else if (c == kill_char || c == '\177') { /* Robert Viduya */
-/* this test last - @ might be the kill_char */
+            /* this test last - @ might be the kill_char */
 #ifndef NEWAUTOCOMP
             while (bufp != obufp) {
                 bufp--;
@@ -179,6 +190,17 @@ hooked_tty_getlin(const char *query, register char *bufp, getlin_hook_proc hook)
     ttyDisplay->toplin = 2; /* nonempty, no --More-- required */
     ttyDisplay->inread--;
     clear_nhwindow(WIN_MESSAGE); /* clean up after ourselves */
+
+    if (suppress_history) {
+        /* prevent next message from pushing current query+answer into
+           tty message history */
+        *toplines = '\0';
+#ifdef DUMPLOG
+    } else {
+        /* needed because we've bypassed pline() */
+        dumplogmsg(toplines);
+#endif
+    }
 }
 
 void
@@ -192,7 +214,7 @@ xwaitforspace(register const char *s) /* chars allowed besides return */
         !program_state.done_hup &&
 #endif
         (c = tty_nhgetch()) != EOF) {
-        if (c == '\n')
+        if (c == '\n' || c == '\r')
             break;
 
         if (iflags.cbreak) {
@@ -202,7 +224,7 @@ xwaitforspace(register const char *s) /* chars allowed besides return */
                 morc = '\033';
                 break;
             }
-            if ((s && index(s, c)) || c == x) {
+            if ((s && index(s, c)) || c == x || (x == '\n' && c == '\r')) {
                 morc = (char) c;
                 break;
             }
@@ -230,7 +252,9 @@ ext_cmd_getlin_hook(char *base)
 
     com_index = -1;
     for (oindex = 0; extcmdlist[oindex].ef_txt != (char *) 0; oindex++) {
-        if (!strncmpi(base, extcmdlist[oindex].ef_txt, strlen(base))) {
+        if ((extcmdlist[oindex].flags & AUTOCOMPLETE)
+            && !(!wizard && (extcmdlist[oindex].flags & WIZMODECMD))
+            && !strncmpi(base, extcmdlist[oindex].ef_txt, strlen(base))) {
             if (com_index == -1) /* no matches yet */
                 com_index = oindex;
             else /* more than 1 match */
@@ -257,9 +281,15 @@ tty_get_ext_cmd()
 
     if (iflags.extmenu)
         return extcmd_via_menu();
-    /* maybe a runtime option? */
-    /* hooked_tty_getlin("#", buf, flags.cmd_comp ? ext_cmd_getlin_hook :
-     * (getlin_hook_proc) 0); */
+
+    suppress_history = TRUE;
+    /* maybe a runtime option?
+     * hooked_tty_getlin("#", buf,
+     *                   (flags.cmd_comp && !in_doagain)
+     *                      ? ext_cmd_getlin_hook
+     *                      : (getlin_hook_proc) 0);
+     */
+    buf[0] = '\0';
     hooked_tty_getlin("#", buf, in_doagain ? (getlin_hook_proc) 0
                                            : ext_cmd_getlin_hook);
     (void) mungspaces(buf);

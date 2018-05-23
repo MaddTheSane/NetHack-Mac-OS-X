@@ -1,4 +1,4 @@
-/* NetHack 3.6	pcvideo.h	$NHDT-Date: 1432512792 2015/05/25 00:13:12 $  $NHDT-Branch: master $:$NHDT-Revision: 1.8 $ */
+/* NetHack 3.6	pcvideo.h	$NHDT-Date: 1457207040 2016/03/05 19:44:00 $  $NHDT-Branch: chasonr $:$NHDT-Revision: 1.9 $ */
 /*   Copyright (c) NetHack PC Development Team 1993, 1994           */
 /*   NetHack may be freely redistributed.  See license for details. */
 /*                                                                  */
@@ -166,7 +166,7 @@ struct overview_planar_cell_struct {
 #define M_BRIGHTCYAN 11
 
 #define M_TEXT M_GRAY
-#define BACKGROUND_COLOR 0
+#define BACKGROUND_COLOR 1
 #define ATTRIB_NORMAL M_TEXT       /* Normal attribute */
 #define ATTRIB_INTENSE M_WHITE     /* Intense White */
 #define ATTRIB_MONO_NORMAL 0x01    /* Underlined,white */
@@ -176,9 +176,9 @@ struct overview_planar_cell_struct {
 #endif                             /*SCREEN_BIOS || SCREEN_DJGPPFAST */
 
 #if defined(SCREEN_VGA) || defined(SCREEN_8514)
-#define BACKGROUND_VGA_COLOR 0
+#define BACKGROUND_VGA_COLOR 1
 #define ATTRIB_VGA_NORMAL CLR_GRAY /* Normal attribute */
-#define ATTRIB_VGA_INTENSE 13      /* Intense White 94/06/07 palette chg*/
+#define ATTRIB_VGA_INTENSE 14      /* Intense White 94/06/07 palette chg*/
 #endif                             /*SCREEN_VGA || SCREEN_8514*/
 
 #if defined(PC9800)
@@ -258,8 +258,6 @@ E int vga_detect(void);
 #ifdef SIMULATE_CURSOR
 E void vga_DrawCursor(void);
 #endif
-E void vga_DisplayCell(struct planar_cell_struct *, int, int);
-E void vga_DisplayCell_O(struct overview_planar_cell_struct *, int, int);
 E void vga_Finish(void);
 E char __far *vga_FontPtrs(void);
 E void vga_get_scr_size(void);
@@ -271,12 +269,9 @@ E void vga_update_positionbar(char *);
 E void vga_HideCursor(void);
 #endif
 E void vga_Init(void);
-E void vga_SwitchMode(unsigned int);
-E void vga_SetPalette(char *);
 E void vga_tty_end_screen(void);
 E void vga_tty_startup(int *, int *);
-E void vga_WriteChar(int, int, int, int);
-E void vga_WriteStr(char *, int, int, int, int);
+E void vga_xputs(const char *, int, int);
 E void vga_xputs(const char *, int, int);
 E void vga_xputc(char, int);
 E void vga_xputg(int, int, unsigned);
@@ -285,6 +280,35 @@ E void vga_overview(boolean);
 E void vga_traditional(boolean);
 E void vga_refresh(void);
 #endif /* SCREEN_VGA */
+#ifdef SCREEN_VESA
+E void vesa_backsp(void);
+E void vesa_clear_screen(int);
+E void vesa_cl_end(int, int);
+E void vesa_cl_eos(int);
+E int vesa_detect(void);
+#ifdef SIMULATE_CURSOR
+E void vesa_DrawCursor(void);
+#endif
+E void vesa_Finish(void);
+E void vesa_get_scr_size(void);
+E void vesa_gotoloc(int, int);
+#ifdef POSITIONBAR
+E void vesa_update_positionbar(char *);
+#endif
+#ifdef SIMULATE_CURSOR
+E void vesa_HideCursor(void);
+#endif
+E void vesa_Init(void);
+E void vesa_tty_end_screen(void);
+E void vesa_tty_startup(int *, int *);
+E void vesa_xputs(const char *, int, int);
+E void vesa_xputc(char, int);
+E void vesa_xputg(int, int, unsigned);
+E void vesa_userpan(boolean));
+E void vesa_overview(boolean);
+E void vesa_traditional(boolean);
+E void vesa_refresh(void);
+#endif /* SCREEN_VESA */
 #endif /* NO_TERMS   */
 
 #undef E

@@ -30,8 +30,10 @@ class NhEvent : NSObject {
 	@objc let mod: Int32
 	@objc let x: Int32
 	@objc let y: Int32
-	@objc final var keyEvent: Bool {
-		return key != 0
+	@objc(keyEvent) final var isKeyEvent: Bool {
+		@objc(isKeyEvent) get {
+			return key != 0
+		}
 	}
 
 	init(key k: Int32, mod m: Int32, x i: Int32, y j: Int32) {

@@ -657,6 +657,10 @@
 		555B7B711C18CE0800A24D24 /* posixregex.c in Sources */ = {isa = PBXBuildFile; fileRef = 555B7B6F1C18CE0800A24D24 /* posixregex.c */; };
 		555B7B731C18D00100A24D24 /* sys.c in Sources */ = {isa = PBXBuildFile; fileRef = 555B7B721C18D00100A24D24 /* sys.c */; };
 		555B7B741C18D00100A24D24 /* sys.c in Sources */ = {isa = PBXBuildFile; fileRef = 555B7B721C18D00100A24D24 /* sys.c */; };
+		5565181120B5C3030072B5CC /* keyhelp in Resources */ = {isa = PBXBuildFile; fileRef = 5565181020B5C3030072B5CC /* keyhelp */; };
+		5565181220B5C3030072B5CC /* keyhelp in Resources */ = {isa = PBXBuildFile; fileRef = 5565181020B5C3030072B5CC /* keyhelp */; };
+		5565181420B5C3480072B5CC /* symbols in Resources */ = {isa = PBXBuildFile; fileRef = 5565181320B5C3480072B5CC /* symbols */; };
+		5565181520B5C3480072B5CC /* symbols in Resources */ = {isa = PBXBuildFile; fileRef = 5565181320B5C3480072B5CC /* symbols */; };
 		556C935120B5B30C009B21BE /* medusa-3.lev in Resources */ = {isa = PBXBuildFile; fileRef = 556C934F20B5B30C009B21BE /* medusa-3.lev */; };
 		556C935220B5B30C009B21BE /* medusa-3.lev in Resources */ = {isa = PBXBuildFile; fileRef = 556C934F20B5B30C009B21BE /* medusa-3.lev */; };
 		556C935320B5B30C009B21BE /* medusa-4.lev in Resources */ = {isa = PBXBuildFile; fileRef = 556C935020B5B30C009B21BE /* medusa-4.lev */; };
@@ -902,7 +906,7 @@
 		0224CB9C11B8A7BE00FC2199 /* Rogue.des */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = Rogue.des; sourceTree = "<group>"; };
 		0224CB9D11B8A7BE00FC2199 /* rumors */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = rumors; sourceTree = "<group>"; };
 		0224CB9E11B8A7BE00FC2199 /* rumors.fal */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = rumors.fal; sourceTree = "<group>"; };
-		0224CB9F11B8A7BE00FC2199 /* rumors.tru */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = rumors.tru; sourceTree = "<group>"; };
+		0224CB9F11B8A7BE00FC2199 /* rumors.tru */ = {isa = PBXFileReference; explicitFileType = text; fileEncoding = 4; path = rumors.tru; sourceTree = "<group>"; };
 		0224CBA011B8A7BE00FC2199 /* Samurai.des */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = Samurai.des; sourceTree = "<group>"; };
 		0224CBA111B8A7BE00FC2199 /* sokoban.des */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = sokoban.des; sourceTree = "<group>"; };
 		0224CBA211B8A7BE00FC2199 /* spec_levs */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = spec_levs; sourceTree = "<group>"; };
@@ -1276,6 +1280,8 @@
 		555B7B6D1C18C79700A24D24 /* sys.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = sys.h; sourceTree = "<group>"; };
 		555B7B6F1C18CE0800A24D24 /* posixregex.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = posixregex.c; sourceTree = "<group>"; };
 		555B7B721C18D00100A24D24 /* sys.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = sys.c; sourceTree = "<group>"; };
+		5565181020B5C3030072B5CC /* keyhelp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = keyhelp; sourceTree = "<group>"; };
+		5565181320B5C3480072B5CC /* symbols */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = symbols; sourceTree = "<group>"; };
 		556C934F20B5B30C009B21BE /* medusa-3.lev */ = {isa = PBXFileReference; lastKnownFileType = file; path = "medusa-3.lev"; sourceTree = "<group>"; };
 		556C935020B5B30C009B21BE /* medusa-4.lev */ = {isa = PBXFileReference; lastKnownFileType = file; path = "medusa-4.lev"; sourceTree = "<group>"; };
 		556C935520B5B3BE009B21BE /* bigrm-6.lev */ = {isa = PBXFileReference; lastKnownFileType = file; path = "bigrm-6.lev"; sourceTree = "<group>"; };
@@ -1454,6 +1460,7 @@
 				0224CB8A11B8A7BE00FC2199 /* hh */,
 				0224CB8B11B8A7BE00FC2199 /* history */,
 				02447B9C11B8C821008CB9C7 /* juiblex.lev */,
+				5565181020B5C3030072B5CC /* keyhelp */,
 				02447B9D11B8C821008CB9C7 /* Kni-fila.lev */,
 				02447B9E11B8C821008CB9C7 /* Kni-filb.lev */,
 				02447B9F11B8C821008CB9C7 /* Kni-goal.lev */,
@@ -1534,6 +1541,7 @@
 				02447BD411B8C821008CB9C7 /* soko4-2.lev */,
 				0224CBA111B8A7BE00FC2199 /* sokoban.des */,
 				0224CBA211B8A7BE00FC2199 /* spec_levs */,
+				5565181320B5C3480072B5CC /* symbols */,
 				02447BD511B8C821008CB9C7 /* Tou-fila.lev */,
 				02447BD611B8C821008CB9C7 /* Tou-filb.lev */,
 				02447BD711B8C821008CB9C7 /* Tou-goal.lev */,
@@ -2378,6 +2386,7 @@
 				0212825914F6E6240046D56F /* earth.lev in Resources */,
 				0212825A14F6E6240046D56F /* fakewiz1.lev in Resources */,
 				0212825B14F6E6240046D56F /* fakewiz2.lev in Resources */,
+				5565181520B5C3480072B5CC /* symbols in Resources */,
 				0212825C14F6E6240046D56F /* fire.lev in Resources */,
 				0212825D14F6E6240046D56F /* Hea-fila.lev in Resources */,
 				0212825E14F6E6240046D56F /* Hea-filb.lev in Resources */,
@@ -2463,6 +2472,7 @@
 				559CDEE81BC1A53E008ED534 /* dawnhack32.png in Resources */,
 				021282A514F6E6240046D56F /* Val-loca.lev in Resources */,
 				021282A614F6E6240046D56F /* Val-strt.lev in Resources */,
+				5565181220B5C3030072B5CC /* keyhelp in Resources */,
 				556C935220B5B30C009B21BE /* medusa-3.lev in Resources */,
 				021282A714F6E6240046D56F /* valley.lev in Resources */,
 				021282A814F6E6240046D56F /* water.lev in Resources */,
@@ -2576,6 +2586,7 @@
 				02447C0311B8C821008CB9C7 /* Cav-loca.lev in Resources */,
 				555B7B611C18C19A00A24D24 /* bogusmon in Resources */,
 				02447C0411B8C821008CB9C7 /* Cav-strt.lev in Resources */,
+				5565181420B5C3480072B5CC /* symbols in Resources */,
 				02447C0511B8C821008CB9C7 /* earth.lev in Resources */,
 				02447C0611B8C821008CB9C7 /* fakewiz1.lev in Resources */,
 				02447C0711B8C821008CB9C7 /* fakewiz2.lev in Resources */,
@@ -2661,6 +2672,7 @@
 				559CDEE71BC1A53E008ED534 /* dawnhack32.png in Resources */,
 				02447C5211B8C821008CB9C7 /* Val-loca.lev in Resources */,
 				02447C5311B8C821008CB9C7 /* Val-strt.lev in Resources */,
+				5565181120B5C3030072B5CC /* keyhelp in Resources */,
 				556C935120B5B30C009B21BE /* medusa-3.lev in Resources */,
 				02447C5411B8C821008CB9C7 /* valley.lev in Resources */,
 				02447C5511B8C821008CB9C7 /* water.lev in Resources */,

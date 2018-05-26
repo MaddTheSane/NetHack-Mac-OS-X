@@ -112,10 +112,7 @@ static NhEventQueue *s_eventQueue;
 }
 
 - (NhEvent *)peek {
-	if (events.count > 0) {
-		return events[0];
-	}
-	return nil;
+	return events.firstObject;
 }
 
 #if !__has_feature(objc_arc)

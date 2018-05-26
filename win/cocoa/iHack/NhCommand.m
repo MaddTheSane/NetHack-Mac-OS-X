@@ -265,6 +265,7 @@ typedef NS_OPTIONS(unsigned int, InvFlags) {
 
 - (void)dealloc {
 	free(keys);
+	RELEASEOBJ(title);
 	SUPERDEALLOC;
 }
 

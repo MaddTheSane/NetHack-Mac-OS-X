@@ -8,16 +8,6 @@
 
 import Cocoa
 
-extension NHRecoveryErrors: Error {
-	public var _domain: String {
-		return NHRecoveryErrorDomain
-	}
-	
-	public var _code: Int {
-		return rawValue
-	}
-}
-
 /// NSTableViewDataSource url table column key
 private let locURLKey = NSUserInterfaceItemIdentifier(rawValue: "NHRecoverURL")
 
@@ -35,10 +25,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 	private var succeededNums = 0
 	@objc dynamic private(set) var countNums = 0
 	
-	fileprivate var recoveryErrors = [URL: Error]()
-	fileprivate var errorOrder = [URL]()
+	private var recoveryErrors = [URL: Error]()
+	private var errorOrder = [URL]()
 	
-	fileprivate var errorToReport: NHRecoveryErrors?
+	private var errorToReport: NHRecoveryErrors?
 	private let opQueue: OperationQueue = {
 		let aQueue = OperationQueue()
 		
@@ -57,14 +47,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 		let selfBundleURL = Bundle.main.bundleURL
 		do {
 			let parentBundleURL = selfBundleURL.deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
-			guard let parentBundle = Bundle(url: parentBundleURL), let parentBundleResources = parentBundle.resourcePath,
+			guard let parentBundle = Bundle(url: parentBundleURL),
+				let parentBundleResources = parentBundle.resourcePath,
 				parentBundle.bundleURL.pathExtension == "app" else {
-					throw NHRecoveryErrors.hostBundleNotFound
+					throw NHRecoveryErrors(.hostBundleNotFound)
 			}
 			//Change to the NetHack resource directory.
 			FileManager.default.changeCurrentDirectoryPath(parentBundleResources)
 		} catch {
-			errorToReport = .hostBundleNotFound
+			errorToReport = NHRecoveryErrors(.hostBundleNotFound)
 		}
 	}
 	
@@ -74,7 +65,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 			let selfBundleURL = Bundle.main.bundleURL
 			return selfBundleURL.deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
 		}()
-		try workspace.launchApplication(at: parentBundleURL as URL, options: .default, configuration: [:])
+		let newApp = try workspace.launchApplication(at: parentBundleURL, options: NSWorkspace.LaunchOptions.default, configuration: [:])
+		newApp.activate(options: .activateAllWindows)
 		NSApp.terminate(nil)
 	}
 	
@@ -87,7 +79,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 					self.succeededNums += 1
 				} else {
 					self.failedNums += 1
-					self.recoveryErrors[url as URL] = saveRecover.error!
+					self.recoveryErrors[url] = saveRecover.error!
 				}
 				if self.countNums == self.succeededNums + self.failedNums {
 					// we're done
@@ -109,7 +101,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 					
 					alert.beginSheetModal(for: self.window, completionHandler: { (response) -> Void in
 						switch response {
-						case .alertFirstButtonReturn:
+						case NSApplication.ModalResponse.alertFirstButtonReturn:
 							do {
 								try self.launchNetHack()
 							} catch let error {
@@ -118,7 +110,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 								exit(EXIT_FAILURE)
 							}
 							
-						case .alertSecondButtonReturn:
+						case NSApplication.ModalResponse.alertSecondButtonReturn:
 							NSApp.terminate(nil)
 							
 						case NSApplication.ModalResponse.alertThirdButtonReturn:
@@ -171,16 +163,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 //extension AppDelegate {
 	func applicationDidFinishLaunching(_ aNotification: Notification) {
 		if let errorToReport = errorToReport {
-				// force loading of SaveRecoveryOperation class
-				SaveRecoveryOperation.load()
-
-				let anAlert = NSAlert(error: errorToReport)
-				anAlert.alertStyle = .critical
-				
-				anAlert.informativeText += "\n\nRecovery will now close."
-				
-				anAlert.runModal()
-				NSApp.terminate(nil)
+			// force loading of SaveRecoveryOperation class
+			SaveRecoveryOperation.load()
+			
+			let anAlert = NSAlert(error: errorToReport)
+			anAlert.alertStyle = .critical
+			
+			anAlert.informativeText += "\n\nRecovery will now close."
+			
+			anAlert.runModal()
+			NSApp.terminate(nil)
+			return
 		}
 		
 		progress.startAnimation(nil)

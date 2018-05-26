@@ -141,7 +141,7 @@ static BOOL copy_bytes(int ifd, int ofd);
 				  "written or subsequently clobbered;\n"
 				  "recovery for \"%s\" impossible.", basename];
 		_error = [[NSError alloc] initWithDomain:NHRecoveryErrorDomain code:NHRecoveryErrorIncompleteCheckpointData userInfo:@{NSLocalizedDescriptionKey: errStr, NSUnderlyingErrorKey: posixErr}];
-
+		
 		Close(gfd);
 		return;
 	}
@@ -149,7 +149,7 @@ static BOOL copy_bytes(int ifd, int ofd);
 		!= sizeof(savelev)) {
 		NSError *posixErr = [NSError errorWithDomain:NSPOSIXErrorDomain code:errno userInfo:nil];
 		errStr = [[NSString alloc] initWithFormat:@"Checkpointing was not in effect for %s -- recovery impossible.",
-				basename];
+				  basename];
 		Close(gfd);
 		_error = [[NSError alloc] initWithDomain:NHRecoveryErrorDomain code:NHRecoveryErrorCheckpointNotInEffect userInfo:@{NSLocalizedDescriptionKey: errStr, NSUnderlyingErrorKey: posixErr}];
 		return;
@@ -162,12 +162,12 @@ static BOOL copy_bytes(int ifd, int ofd);
 		|| (read(gfd, (genericptr_t) &pltmpsiz, sizeof pltmpsiz)
 			!= sizeof pltmpsiz) || (pltmpsiz > PL_NSIZ)
 		|| (read(gfd, (genericptr_t) &plbuf, pltmpsiz) != pltmpsiz)) {
-			NSError *posixErr = [NSError errorWithDomain:NSPOSIXErrorDomain code:errno userInfo:nil];
-			errStr = [[NSString alloc] initWithFormat:@"Error reading %s -- can't recover.", lock];
-			Close(gfd);
-			_error = [[NSError alloc] initWithDomain:NHRecoveryErrorDomain code:NHRecoveryErrorReading userInfo:@{NSLocalizedDescriptionKey: errStr, NSUnderlyingErrorKey: posixErr}];
-			return;
-		}
+		NSError *posixErr = [NSError errorWithDomain:NSPOSIXErrorDomain code:errno userInfo:nil];
+		errStr = [[NSString alloc] initWithFormat:@"Error reading %s -- can't recover.", lock];
+		Close(gfd);
+		_error = [[NSError alloc] initWithDomain:NHRecoveryErrorDomain code:NHRecoveryErrorReading userInfo:@{NSLocalizedDescriptionKey: errStr, NSUnderlyingErrorKey: posixErr}];
+		return;
+	}
 	
 	/* save file should contain:
 	 *	version info

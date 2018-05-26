@@ -10,9 +10,9 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
-extern NSString * const NHRecoveryErrorDomain;
+extern NSErrorDomain const NHRecoveryErrorDomain;
 
-typedef NS_ENUM(NSInteger, NHRecoveryErrors) {
+typedef NS_ERROR_ENUM(NHRecoveryErrorDomain, NHRecoveryErrors) {
 	NHRecoveryErrorCannotOpenLevel0,
 	NHRecoveryErrorIncompleteCheckpointData,
 	NHRecoveryErrorCheckpointNotInEffect,

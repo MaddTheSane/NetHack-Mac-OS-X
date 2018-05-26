@@ -283,8 +283,10 @@ static inline void RunOnMainThreadAsync(dispatch_block_t block)
 			[[NhEventQueue instance] addEvent:e];
 		} else {
 			// unknown
-			NSAlert * alert = [NSAlert alertWithMessageText:@"Menu binding not implemented" defaultButton:nil alternateButton:nil otherButton:nil informativeTextWithFormat:@""];
-			[alert runModal];		
+			NSAlert * alert = [NSAlert new];
+			alert.messageText = @"Menu binding not implemented";
+			alert.informativeText = @"";
+			[alert runModal];
 		}
 	}
 }
@@ -345,7 +347,9 @@ static inline void RunOnMainThreadAsync(dispatch_block_t block)
 		[equipmentView updateInventory];
 		
 	} else {
-		NSAlert * alert = [NSAlert alertWithMessageText:@"The tile set could not be loaded" defaultButton:nil alternateButton:nil otherButton:nil informativeTextWithFormat:@"The file may be unreadable, or the dimensions may not be appropriate"];
+		NSAlert * alert = [NSAlert new];
+		alert.messageText = @"The tile set could not be loaded";
+		alert.informativeText = @"The file may be unreadable, or the dimensions may not be appropriate";
 		[alert runModal];
 	}
 }

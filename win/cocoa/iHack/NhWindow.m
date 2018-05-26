@@ -28,6 +28,7 @@
 #import "NhMapWindow.h"
 #import "NhStatusWindow.h"
 #import "MainWindowController.h"
+#import "ARCBridge.h"
 
 
 static NhWindow *s_messageWindow = nil;
@@ -311,11 +312,10 @@ static NhWindow *s_mapWindow = nil;
 	id result = nil;
 	[self lock];
 	if ( row < lines.count ) {
-		result = lines[row];
-		//[[result retain] autorelease];
+		result = RETAINOBJ(lines[row]);
 	}
 	[self unlock];
-	return result;
+	return AUTORELEASEOBJ(result);
 }
 
 

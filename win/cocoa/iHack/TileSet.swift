@@ -30,6 +30,7 @@ final class TileSet: NSObject {
 	private let rows: Int
 	private let columns: Int
 	private var cache: [Int16: NSImage] = [:]
+	private var disabledCache: [Int16: NSImage] = [:]
 
 	@objc init(image img: NSImage, tileSize ts: NSSize) {
 		image = img.copy() as! NSImage
@@ -41,7 +42,8 @@ final class TileSet: NSObject {
 		super.init()
 	}
 	
-	@objc(sourceRectForGlyph:) func sourceRect(for glyph: Int32) -> NSRect {
+	@objc(sourceRectForGlyph:)
+	func sourceRect(for glyph: Int32) -> NSRect {
 		let tile = glyphToTile(glyph)
 		return sourceRect(for: tile)
 	}
@@ -68,10 +70,12 @@ final class TileSet: NSObject {
 	}()
 	
 	@objc(imageForGlyph:enabled:)
-	func image(for glyph: Int32, enabled: Bool = true) -> NSImage {
+	func image(forGlyph glyph: Int32, enabled: Bool = true) -> NSImage {
 		let tile = glyphToTile(glyph)
 		// Check for cached image:
 		if enabled, let img = cache[tile] {
+			return img
+		} else if !enabled, let img = disabledCache[tile] {
 			return img
 		}
 		// get image
@@ -150,6 +154,7 @@ final class TileSet: NSObject {
 		// last resort
 		if newImage.representations.count == 0 {
 			newImage.lockFocus()
+			// to prevent strange artifacts caused by pixel doubling
 			NSGraphicsContext.current?.imageInterpolation = .none
 			self.image.draw(in: dstRect, from: srcRect, operation: .copy, fraction: enabled ? 1.0 : 0.5)
 			newImage.unlockFocus()
@@ -157,6 +162,8 @@ final class TileSet: NSObject {
 		// cache image
 		if enabled {
 			cache[tile] = newImage
+		} else {
+			disabledCache[tile] = newImage
 		}
 		return newImage
 	}

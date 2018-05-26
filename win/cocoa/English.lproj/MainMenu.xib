@@ -76,7 +76,7 @@
                         <rect key="frame" x="0.0" y="210" width="429" height="166"/>
                         <subviews>
                             <levelIndicator verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="1389">
-                                <rect key="frame" x="114" y="97" width="85" height="16"/>
+                                <rect key="frame" x="137" y="97" width="85" height="16"/>
                                 <constraints>
                                     <constraint firstAttribute="width" constant="84" id="1713"/>
                                 </constraints>
@@ -135,7 +135,7 @@
                                 </textFieldCell>
                             </textField>
                             <levelIndicator verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="1390">
-                                <rect key="frame" x="114" y="77" width="85" height="16"/>
+                                <rect key="frame" x="137" y="77" width="85" height="16"/>
                                 <levelIndicatorCell key="cell" alignment="left" doubleValue="2" maxValue="2" warningValue="2" criticalValue="2" levelIndicatorStyle="continuousCapacity" id="1448"/>
                             </levelIndicator>
                             <textField verticalHuggingPriority="750" allowsCharacterPickerTouchBarItem="YES" translatesAutoresizingMaskIntoConstraints="NO" id="1391">
@@ -452,7 +452,6 @@
                             <constraint firstItem="1415" firstAttribute="baseline" secondItem="1414" secondAttribute="baseline" id="1789"/>
                             <constraint firstItem="1407" firstAttribute="trailing" secondItem="1406" secondAttribute="trailing" id="1790"/>
                             <constraint firstItem="1384" firstAttribute="top" secondItem="1383" secondAttribute="top" constant="5" id="1791"/>
-                            <constraint firstItem="1389" firstAttribute="leading" secondItem="1383" secondAttribute="leading" constant="114" id="1792"/>
                             <constraint firstItem="1405" firstAttribute="trailing" secondItem="1403" secondAttribute="trailing" id="1793"/>
                             <constraint firstItem="1399" firstAttribute="baseline" secondItem="1402" secondAttribute="baseline" id="1794"/>
                             <constraint firstItem="1401" firstAttribute="baseline" secondItem="1400" secondAttribute="baseline" id="1795"/>
@@ -468,6 +467,8 @@
                             <constraint firstItem="1393" firstAttribute="baseline" secondItem="1395" secondAttribute="baseline" id="1806"/>
                             <constraint firstItem="1415" firstAttribute="leading" secondItem="1414" secondAttribute="trailing" constant="3" id="2gG-ZI-HRe"/>
                             <constraint firstItem="1411" firstAttribute="trailing" secondItem="1420" secondAttribute="trailing" id="Hb8-GS-1mx"/>
+                            <constraint firstItem="1395" firstAttribute="leading" relation="greaterThanOrEqual" secondItem="1389" secondAttribute="trailing" constant="4" id="Ww7-gN-Evg"/>
+                            <constraint firstItem="1389" firstAttribute="leading" secondItem="1393" secondAttribute="trailing" constant="8" symbolic="YES" id="dmr-dJ-jTa"/>
                             <constraint firstItem="1403" firstAttribute="leading" secondItem="1402" secondAttribute="trailing" constant="1" id="hQK-jC-12s"/>
                         </constraints>
                         <connections>
@@ -506,7 +507,7 @@
                                     <color key="backgroundColor" name="controlBackgroundColor" catalog="System" colorSpace="catalog"/>
                                     <color key="gridColor" name="gridColor" catalog="System" colorSpace="catalog"/>
                                     <tableColumns>
-                                        <tableColumn editable="NO" width="98" minWidth="40" maxWidth="1000" id="1682">
+                                        <tableColumn identifier="" editable="NO" width="98" minWidth="40" maxWidth="1000" id="1682">
                                             <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left">
                                                 <font key="font" metaFont="smallSystem"/>
                                                 <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
@@ -1752,7 +1753,7 @@ DQ
                         <rect key="frame" x="0.0" y="60" width="398" height="198"/>
                         <clipView key="contentView" id="XU0-mf-kix">
                             <rect key="frame" x="0.0" y="0.0" width="398" height="198"/>
-                            <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+                            <autoresizingMask key="autoresizingMask"/>
                             <subviews>
                                 <customView fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="1492" customClass="FlippedView">
                                     <rect key="frame" x="0.0" y="0.0" width="398" height="198"/>
@@ -2072,7 +2073,7 @@ Gw
                         </tableHeaderView>
                     </scrollView>
                     <button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="1159">
-                        <rect key="frame" x="369" y="45" width="82" height="32"/>
+                        <rect key="frame" x="369" y="46" width="82" height="32"/>
                         <constraints>
                             <constraint firstAttribute="width" relation="greaterThanOrEqual" constant="70" id="1957"/>
                         </constraints>
@@ -2088,7 +2089,7 @@ DQ
                         </connections>
                     </button>
                     <button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="1161">
-                        <rect key="frame" x="369" y="12" width="82" height="32"/>
+                        <rect key="frame" x="369" y="13" width="82" height="32"/>
                         <buttonCell key="cell" type="push" title="Quit" bezelStyle="rounded" alignment="center" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="1162">
                             <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                             <font key="font" metaFont="system"/>
@@ -2207,7 +2208,7 @@ Gw
                     <constraint firstItem="1177" firstAttribute="top" secondItem="1129" secondAttribute="top" constant="67" id="1937"/>
                     <constraint firstAttribute="bottom" secondItem="1134" secondAttribute="bottom" multiplier="1.6" constant="20" symbolic="YES" id="1939"/>
                     <constraint firstItem="1134" firstAttribute="leading" secondItem="1129" secondAttribute="leading" constant="20" symbolic="YES" id="1940"/>
-                    <constraint firstAttribute="bottom" secondItem="1161" secondAttribute="bottom" constant="19" id="1941"/>
+                    <constraint firstAttribute="bottom" secondItem="1161" secondAttribute="bottom" constant="20" symbolic="YES" id="1941"/>
                     <constraint firstAttribute="bottom" secondItem="1143" secondAttribute="bottom" constant="20" symbolic="YES" id="1942"/>
                     <constraint firstItem="1143" firstAttribute="top" secondItem="1134" secondAttribute="top" id="1943"/>
                     <constraint firstItem="1177" firstAttribute="leading" secondItem="1179" secondAttribute="leading" id="1944"/>

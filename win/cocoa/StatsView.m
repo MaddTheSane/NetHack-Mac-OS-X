@@ -146,7 +146,12 @@
 			xp.stringValue = value;
 			level.stringValue = @"";
 		} else {
-			assert(NO);
+			// TODO: more scans!
+			xpLabel.stringValue = @"?";
+			xp.stringValue = @"?";
+			level.stringValue = @"?";
+			NSLog(@"NethackCocoa: could not parse status line: %@", text);
+			// assert(NO);
 		}
 
 		if ( [scanner scanString:@"T:" intoString:NULL] ) {	// user can turn this off using the "time" option

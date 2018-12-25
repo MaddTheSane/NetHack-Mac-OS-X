@@ -1047,7 +1047,7 @@ struct obj *
 getobj(register const char *let, register const char *word)
 {
     register struct obj *otmp;
-    register char ilet;
+    register char ilet=0;
     char buf[BUFSZ], qbuf[QBUFSZ];
     char lets[BUFSZ], altlets[BUFSZ], *ap;
     register int foo = 0;

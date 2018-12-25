@@ -2246,7 +2246,7 @@
 			isa = PBXProject;
 			attributes = {
 				LastSwiftUpdateCheck = 0700;
-				LastUpgradeCheck = 0930;
+				LastUpgradeCheck = 1010;
 				ORGANIZATIONNAME = "Dirk Zimmermann";
 				TargetAttributes = {
 					021281F514F6E6240046D56F = {
@@ -2267,6 +2267,7 @@
 					557119951BD8203500959CD5 = {
 						CreatedOnToolsVersion = 7.0.1;
 						DevelopmentTeam = MKTTC6734C;
+						LastSwiftMigration = 1010;
 					};
 					557119A31BD8203500959CD5 = {
 						CreatedOnToolsVersion = 7.0.1;
@@ -2278,7 +2279,7 @@
 					};
 					8D1107260486CEB800E47090 = {
 						DevelopmentTeam = MKTTC6734C;
-						LastSwiftMigration = 0800;
+						LastSwiftMigration = 1010;
 					};
 				};
 			};
@@ -3565,6 +3566,7 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 				SWIFT_OBJC_BRIDGING_HEADER = "Recover/Recover-Bridging-Header.h";
+				SWIFT_VERSION = 4.2;
 			};
 			name = Debug;
 		};
@@ -3584,6 +3586,7 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 				SWIFT_OBJC_BRIDGING_HEADER = "Recover/Recover-Bridging-Header.h";
+				SWIFT_VERSION = 4.2;
 			};
 			name = Release;
 		};
@@ -3680,7 +3683,6 @@
 				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = NetHackCocoa_Prefix.pch;
 				GCC_PREPROCESSOR_DEFINITIONS = (
@@ -3696,6 +3698,7 @@
 				PRODUCT_NAME = NetHackCocoa;
 				PROVISIONING_PROFILE = "";
 				SWIFT_OBJC_BRIDGING_HEADER = SwiftBridgeHeader.h;
+				SWIFT_VERSION = 4.2;
 				USER_HEADER_SEARCH_PATHS = "$(inherited) ../../include";
 			};
 			name = Debug;
@@ -3725,6 +3728,7 @@
 				PRODUCT_NAME = NetHackCocoa;
 				PROVISIONING_PROFILE = "";
 				SWIFT_OBJC_BRIDGING_HEADER = SwiftBridgeHeader.h;
+				SWIFT_VERSION = 4.2;
 				USER_HEADER_SEARCH_PATHS = "$(inherited) ../../include";
 			};
 			name = Release;

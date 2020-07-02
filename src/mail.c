@@ -1,4 +1,4 @@
-/* NetHack 3.6	mail.c	$NHDT-Date: 1519070343 2018/02/19 19:59:03 $  $NHDT-Branch: NetHack-3.6.0 $:$NHDT-Revision: 1.31 $ */
+/* NetHack 3.6	mail.c	$NHDT-Date: 1568508711 2019/09/15 00:51:51 $  $NHDT-Branch: NetHack-3.6 $:$NHDT-Revision: 1.40 $ */
 /* Copyright (c) Stichting Mathematisch Centrum, Amsterdam, 1985. */
 /*-Copyright (c) Pasi Kallinen, 2018. */
 /* NetHack may be freely redistributed.  See license for details. */
@@ -185,7 +185,7 @@ md_start(coord *startp)
      */
     lax = 0; /* be picky */
     max_distance = -1;
-retry:
+ retry:
     for (row = 0; row < ROWNO; row++) {
         if (viz_rmin[row] < viz_rmax[row]) {
             /* There are valid positions on this row. */
@@ -333,19 +333,21 @@ md_rush(struct monst *md,
         else if (fx == u.ux && fy == u.uy)
             verbalize("Excuse me.");
 
+        if (mon)
+            remove_monster(fx, fy);
         place_monster(md, fx, fy); /* put md down */
         newsym(fx, fy);            /* see it */
         flush_screen(0);           /* make sure md shows up */
         delay_output();            /* wait a little bit */
 
         /* Remove md from the dungeon.  Restore original mon, if necessary. */
+        remove_monster(fx, fy);
         if (mon) {
             if ((mon->mx != fx) || (mon->my != fy))
                 place_worm_seg(mon, fx, fy);
             else
                 place_monster(mon, fx, fy);
-        } else
-            remove_monster(fx, fy);
+        }
         newsym(fx, fy);
     }
 
@@ -354,9 +356,11 @@ md_rush(struct monst *md,
      * very unlikely).  If one exists, then have the md leave in disgust.
      */
     if ((mon = m_at(fx, fy)) != 0) {
+        remove_monster(fx, fy);
         place_monster(md, fx, fy); /* display md with text below */
         newsym(fx, fy);
         verbalize("This place's too crowded.  I'm outta here.");
+        remove_monster(fx, fy);
 
         if ((mon->mx != fx) || (mon->my != fy)) /* put mon back */
             place_worm_seg(mon, fx, fy);
@@ -410,14 +414,17 @@ newmail(struct mail_info *info)
         display_nhwindow(WIN_MESSAGE, FALSE);
         obj = hold_another_object(obj, "Oops!", (const char *) 0,
                                   (const char *) 0);
+        nhUse(obj);
     }
 
-/* zip back to starting location */
-go_back:
-    (void) md_rush(md, start.x, start.y);
+ go_back:
+    /* zip back to starting location */
+    if (!md_rush(md, start.x, start.y))
+        md->mx = md->my = 0; /* for mongone, md is not on map */
     mongone(md);
-/* deliver some classes of messages even if no daemon ever shows up */
-give_up:
+
+ give_up:
+    /* deliver some classes of messages even if no daemon ever shows up */
     if (!message_seen && info->message_typ == MSG_OTHER)
         pline("Hark!  \"%s.\"", info->display_txt);
 }
@@ -448,28 +455,65 @@ ckmailstatus()
 void
 readmail(struct obj *otmp UNUSED)
 {
-    static char *junk[] = {
-        NULL, /* placeholder for "Report bugs to <devteam@nethack.org>.", */
-        "Please disregard previous letter.", "Welcome to NetHack.",
+    static const char *junk[] = {
+        "Report bugs to <%s>.", /*** must be first entry ***/
+        "Please disregard previous letter.",
+        "Welcome to NetHack.",
 #ifdef AMIGA
-        "Only Amiga makes it possible.", "CATS have all the answers.",
+        "Only Amiga makes it possible.",
+        "CATS have all the answers.",
 #endif
         "This mail complies with the Yendorian Anti-Spam Act (YASA)",
         "Please find enclosed a small token to represent your Owlbear",
         "**FR33 P0T10N 0F FULL H34L1NG**",
         "Please return to sender (Asmodeus)",
-      "Buy a potion of gain level for only $19.99! Guaranteed to be blessed!",
-        "Invitation: Visit the NetHack web site at http://www.nethack.org!"
+        /* when enclosed by "It reads:  \"...\"", this is too long
+           for an ordinary 80-column display so wraps to a second line
+           (suboptimal but works correctly);
+           dollar sign and fractional zorkmids are inappropriate within
+           nethack but are suitable for typical dysfunctional spam mail */
+     "Buy a potion of gain level for only $19.99!  Guaranteed to be blessed!",
+        /* DEVTEAM_URL will be substituted for "%s"; terminating punctuation
+           (formerly "!") has deliberately been omitted so that it can't be
+           mistaken for part of the URL (unfortunately that is still followed
+           by a closing quote--in the pline below, not the data here) */
+        "Invitation: Visit the NetHack web site at %s"
     };
 
     /* XXX replace with more general substitution code and add local
-     * contact message.  Also use DEVTEAM_URL */
-    if (junk[0] == NULL) {
-#define BUGS_FORMAT "Report bugs to <%s>."
-        /* +2 from '%s' suffices as substitute for usual +1 for terminator */
-        junk[0] = (char *) alloc(strlen(BUGS_FORMAT) + strlen(DEVTEAM_EMAIL));
-        Sprintf(junk[0], BUGS_FORMAT, DEVTEAM_EMAIL);
-#undef BUGS_FORMAT
+     * contact message.
+     *
+     * FIXME:  this allocated memory is never freed.  However, if the
+     * game is restarted, the junk[] update will be a no-op for second
+     * and subsequent runs and this updated text will still be appropriate.
+     */
+    if (index(junk[0], '%')) {
+        char *tmp;
+        int i;
+
+        for (i = 0; i < SIZE(junk); ++i) {
+            if (index(junk[i], '%')) {
+                if (i == 0) {
+                    /* +2 from '%s' in junk[0] suffices as substitute
+                       for usual +1 for terminator */
+                    tmp = (char *) alloc(strlen(junk[0])
+                                         + strlen(DEVTEAM_EMAIL));
+                    Sprintf(tmp, junk[0], DEVTEAM_EMAIL);
+                    junk[0] = tmp;
+                } else if (strstri(junk[i], "web site")) {
+                    /* as with junk[0], room for terminator is present */
+                    tmp = (char *) alloc(strlen(junk[i])
+                                         + strlen(DEVTEAM_URL));
+                    Sprintf(tmp, junk[i], DEVTEAM_URL);
+                    junk[i] = tmp;
+                } else {
+                    /* could check for "%%" but unless that becomes needed,
+                       handling it is more complicated than necessary */
+                    impossible("fake mail #%d has undefined substitution", i);
+                    junk[i] = "Bad fake mail...";
+                }
+            }
+        }
     }
     if (Blind) {
         pline("Unfortunately you cannot see what it says.");
@@ -597,7 +641,7 @@ read_simplemail(char *mbox, boolean adminmsg)
     else
         unlink(mailbox);
     return;
-bail:
+ bail:
     /* bail out _professionally_ */
     if (!adminmsg)
         pline("It appears to be all gibberish.");
@@ -634,6 +678,8 @@ readmail(struct obj *otmp UNUSED)
     return;
 #endif /* SIMPLE_MAIL */
 #ifdef DEF_MAILREADER /* This implies that UNIX is defined */
+    if (iflags.debug_fuzzer)
+        return;
     display_nhwindow(WIN_MESSAGE, FALSE);
     if (!(mr = nh_getenv("MAILREADER")))
         mr = DEF_MAILREADER;
@@ -666,6 +712,8 @@ ckmailstatus()
 {
     struct mail_info *brdcst;
 
+    if (iflags.debug_fuzzer)
+        return;
     if (u.uswallow || !flags.biff)
         return;
 

@@ -1,4 +1,4 @@
-/* NetHack 3.6	flag.h	$NHDT-Date: 1514071158 2017/12/23 23:19:18 $  $NHDT-Branch: NetHack-3.6.0 $:$NHDT-Revision: 1.132 $ */
+/* NetHack 3.6	flag.h	$NHDT-Date: 1574900824 2019/11/28 00:27:04 $  $NHDT-Branch: NetHack-3.6 $:$NHDT-Revision: 1.160 $ */
 /* Copyright (c) Stichting Mathematisch Centrum, Amsterdam, 1985. */
 /*-Copyright (c) Michael Allison, 2006. */
 /* NetHack may be freely redistributed.  See license for details. */
@@ -40,7 +40,7 @@ struct flag {
     boolean lit_corridor;    /* show a dark corr as lit if it is in sight */
     boolean nap;             /* `timed_delay' option for display effects */
     boolean null;            /* OK to send nulls to the terminal */
-    boolean perm_invent;     /* keep full inventories up until dismissed */
+    boolean p__obsolete;     /* [3.6.2: perm_invent moved to iflags] */
     boolean pickup;          /* whether you pickup or move and look */
     boolean pickup_thrown;   /* auto-pickup items you threw */
     boolean pushweapon; /* When wielding, push old weapon into second slot */
@@ -64,7 +64,7 @@ struct flag {
      * 'schar' to 'short int' instead of to 'char'.  (Needed by pre-ANSI
      * systems that use unsigned characters without a way to force them
      * to be signed.)  So, the type has been changed back to 'xchar' for
-     * 3.6.1.
+     * 3.6.x.
      *
      * TODO:  change to 'char' (and move out of this block of booleans,
      * and get rid of these comments...) once 3.6.0 savefile compatibility
@@ -106,6 +106,7 @@ struct flag {
 #define PARANOID_REMOVE     0x0040
 #define PARANOID_BREAKWAND  0x0080
 #define PARANOID_WERECHANGE 0x0100
+#define PARANOID_EATING     0x0200
     int pickup_burden; /* maximum burden before prompt */
     int pile_limit;    /* controls feedback when walking over objects */
     char inv_order[MAXOCLASSES];
@@ -221,20 +222,34 @@ enum getloc_filters {
     NUM_GFILTER
 };
 
+struct debug_flags {
+    boolean test;
+#ifdef TTY_GRAPHICS
+    boolean ttystatus;
+#endif
+#ifdef WIN32
+    boolean immediateflips;
+#endif
+};
+
 struct instance_flags {
     /* stuff that really isn't option or platform related. They are
      * set and cleared during the game to control the internal
      * behaviour of various NetHack functions and probably warrant
      * a structure of their own elsewhere some day.
      */
+    boolean debug_fuzzer;  /* fuzz testing */
     boolean defer_plname;  /* X11 hack: askname() might not set plname */
     boolean herecmd_menu;  /* use menu when mouseclick on yourself */
     boolean invis_goldsym; /* gold symbol is ' '? */
-    int parse_config_file_src;  /* hack for parse_config_line() */
+    int at_midnight;       /* only valid during end of game disclosure */
+    int at_night;          /* also only valid during end of game disclosure */
+    int failing_untrap;    /* move_into_trap() -> spoteffects() -> dotrap() */
     int in_lava_effects;   /* hack for Boots_off() */
     int last_msg;          /* indicator of last message player saw */
-    int purge_monsters;    /* # of dead monsters still on fmon list */
     int override_ID;       /* true to force full identification of objects */
+    int parse_config_file_src;  /* hack for parse_config_line() */
+    int purge_monsters;    /* # of dead monsters still on fmon list */
     int suppress_price;    /* controls doname() for unpaid objects */
     int terrainmode; /* for getpos()'s autodescribe when #terrain is active */
 #define TER_MAP    0x01
@@ -247,12 +262,15 @@ struct instance_flags {
     boolean getloc_usemenu;
     boolean getloc_moveskip;
     coord travelcc;        /* coordinates for travel_cache */
+    boolean trav_debug;    /* display travel path (#if DEBUG only) */
     boolean window_inited; /* true if init_nhwindows() completed */
     boolean vision_inited; /* true if vision is ready */
     boolean sanity_check;  /* run sanity checks */
     boolean mon_polycontrol; /* debug: control monster polymorphs */
     boolean in_dumplog;    /* doing the dumplog right now? */
     boolean in_parse;      /* is a command being parsed? */
+     /* suppress terminate during options parsing, for --showpaths */
+    boolean initoptions_noterminate;
 
     /* stuff that is related to options and/or user or platform preferences
      */
@@ -282,6 +300,7 @@ struct instance_flags {
     boolean menu_tab_sep;     /* Use tabs to separate option menu fields */
     boolean news;             /* print news */
     boolean num_pad;          /* use numbers for movement commands */
+    boolean perm_invent;      /* keep full inventories up until dismissed */
     boolean renameallowed;    /* can change hero name during role selection */
     boolean renameinprogress; /* we are changing hero name */
     boolean status_updates;   /* allow updates to bottom status lines;
@@ -298,6 +317,7 @@ struct instance_flags {
     boolean rlecomp;          /* alternative to zerocomp; run-length encoding
                                * compression of levels when writing savefile */
     uchar num_pad_mode;
+    boolean cursesgraphics;     /* Use portable curses extended characters */
 #if 0   /* XXXgraphics superseded by symbol sets */
     boolean  DECgraphics;       /* use DEC VT-xxx extended character set */
     boolean  IBMgraphics;       /* use IBM extended character set */
@@ -307,10 +327,8 @@ struct instance_flags {
 #endif
 #endif
     uchar bouldersym; /* symbol for boulder display */
-#ifdef TTY_GRAPHICS
     char prevmsg_window; /* type of old message window to use */
     boolean extmenu;     /* extended commands use menu interface */
-#endif
 #ifdef MFLOPPY
     boolean checkspace; /* check disk space before writing files */
                         /* (in iflags to allow restore after moving
@@ -349,8 +367,10 @@ struct instance_flags {
 #ifdef TTY_TILES_ESCCODES
     boolean vt_tiledata;     /* output console codes for tile support in TTY */
 #endif
-    boolean wizweight;        /* display weight of everything in wizard mode */
-
+    boolean clicklook;       /* allow right-clicking for look */
+    boolean cmdassist;       /* provide detailed assistance for some comnds */
+    boolean time_botl;       /* context.botl for 'time' (moves) only */
+    boolean wizweight;       /* display weight of everything in wizard mode */
     /*
      * Window capability support.
      */
@@ -370,10 +390,8 @@ struct instance_flags {
     char *wc_backgrnd_menu; /* points to backgrnd color name for menu win   */
     char *wc_foregrnd_message; /* points to foregrnd color name for msg win */
     char *wc_backgrnd_message; /* points to backgrnd color name for msg win */
-    char *
-        wc_foregrnd_status; /* points to foregrnd color name for status win */
-    char *
-        wc_backgrnd_status; /* points to backgrnd color name for status win */
+    char *wc_foregrnd_status; /* points to foregrnd color name for status   */
+    char *wc_backgrnd_status; /* points to backgrnd color name for status   */
     char *wc_foregrnd_text; /* points to foregrnd color name for text win   */
     char *wc_backgrnd_text; /* points to backgrnd color name for text win   */
     char *wc_font_map;      /* points to font name for the map win */
@@ -395,19 +413,19 @@ struct instance_flags {
     boolean wc_popup_dialog;    /* put queries in pop up dialogs instead of
                                  * in the message window */
     boolean wc_eight_bit_input; /* allow eight bit input               */
-    boolean wc_mouse_support;   /* allow mouse support */
     boolean wc2_fullscreen;     /* run fullscreen */
     boolean wc2_softkeyboard;   /* use software keyboard */
     boolean wc2_wraptext;       /* wrap text */
     boolean wc2_selectsaved;    /* display a menu of user's saved games */
     boolean wc2_darkgray;    /* try to use dark-gray color for black glyphs */
     boolean wc2_hitpointbar;  /* show graphical bar representing hit points */
-    boolean cmdassist;     /* provide detailed assistance for some commands */
-    boolean clicklook;          /* allow right-clicking for look */
-    boolean obsolete;  /* obsolete options can point at this, it isn't used */
-    struct autopickup_exception *autopickup_exceptions[2];
-#define AP_LEAVE 0
-#define AP_GRAB 1
+    boolean wc2_guicolor;       /* allow colours in gui (outside map) */
+    int wc_mouse_support;       /* allow mouse support */
+    int wc2_term_cols;		/* terminal width, in characters */
+    int wc2_term_rows;		/* terminal height, in characters */
+    int wc2_statuslines;        /* default = 2, curses can handle 3 */
+    int wc2_windowborders;	/* display borders on NetHack windows */
+    int wc2_petattr;            /* text attributes for pet */
 #ifdef WIN32
 #define MAX_ALTKEYHANDLER 25
     char altkeyhandler[MAX_ALTKEYHANDLER];
@@ -423,6 +441,13 @@ struct instance_flags {
     short mines_prize_type;     /* luckstone */
     short soko_prize_type1;     /* bag of holding or    */
     short soko_prize_type2;     /* amulet of reflection */
+    struct debug_flags debug;
+    boolean windowtype_locked;  /* windowtype can't change from configfile */
+    boolean windowtype_deferred; /* pick a windowport and store it in
+                                    chosen_windowport[], but do not switch to
+                                    it in the midst of options processing */
+    genericptr_t returning_missile; /* 'struct obj *'; Mjollnir or aklys */
+    boolean obsolete;  /* obsolete options can point at this, it isn't used */
 };
 
 /*
@@ -462,7 +487,8 @@ enum plnmsg_types {
     PLNMSG_TOWER_OF_FLAME,      /* scroll of fire */
     PLNMSG_CAUGHT_IN_EXPLOSION, /* explode() feedback */
     PLNMSG_OBJ_GLOWS,           /* "the <obj> glows <color>" */
-    PLNMSG_OBJNAM_ONLY          /* xname/doname only, for #tip */
+    PLNMSG_OBJNAM_ONLY,         /* xname/doname only, for #tip */
+    PLNMSG_OK_DONT_DIE          /* overriding death in explore/wizard mode */
 };
 
 /* runmode options */
@@ -495,6 +521,9 @@ enum runmode_types {
 /* werechange: accepting randomly timed werecreature change to transform
    from human to creature or vice versa while having polymorph control */
 #define ParanoidWerechange ((flags.paranoia_bits & PARANOID_WERECHANGE) != 0)
+/* continue eating: prompt given _after_first_bite_ when eating something
+   while satiated */
+#define ParanoidEating ((flags.paranoia_bits & PARANOID_EATING) != 0)
 
 /* command parsing, mainly dealing with number_pad handling;
    not saved and restored */

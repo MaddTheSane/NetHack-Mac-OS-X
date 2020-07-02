@@ -1,4 +1,4 @@
-/* NetHack 3.6	potion.c	$NHDT-Date: 1520797133 2018/03/11 19:38:53 $  $NHDT-Branch: NetHack-3.6.0 $:$NHDT-Revision: 1.144 $ */
+/* NetHack 3.6	potion.c	$NHDT-Date: 1573848199 2019/11/15 20:03:19 $  $NHDT-Branch: NetHack-3.6 $:$NHDT-Revision: 1.167 $ */
 /* Copyright (c) Stichting Mathematisch Centrum, Amsterdam, 1985. */
 /*-Copyright (c) Robert Patrick Rankin, 2013. */
 /* NetHack may be freely redistributed.  See license for details. */
@@ -96,15 +96,19 @@ make_stunned(long xtime, boolean talk)
     set_itimeout(&HStun, xtime);
 }
 
+/* Sick is overloaded with both fatal illness and food poisoning (via
+   u.usick_type bit mask), but delayed killer can only support one or
+   the other at a time.  They should become separate intrinsics.... */
 void
 make_sick(long xtime,
           const char *cause, /* sickness cause */
           boolean talk,
           int type)
 {
+    struct kinfo *kptr;
     long old = Sick;
 
-#if 0
+#if 0   /* tell player even if hero is unconscious */
     if (Unaware)
         talk = FALSE;
 #endif
@@ -137,11 +141,20 @@ make_sick(long xtime,
         context.botl = TRUE;
     }
 
+    kptr = find_delayed_killer(SICK);
     if (Sick) {
         exercise(A_CON, FALSE);
-        delayed_killer(SICK, KILLED_BY_AN, cause);
+        /* setting delayed_killer used to be unconditional, but that's
+           not right when make_sick(0) is called to cure food poisoning
+           if hero was also fatally ill; this is only approximate */
+        if (xtime || !old || !kptr) {
+            int kpfx = ((cause && !strcmp(cause, "#wizintrinsic"))
+                        ? KILLED_BY : KILLED_BY_AN);
+
+            delayed_killer(SICK, kpfx, cause);
+        }
     } else
-        dealloc_killer(find_delayed_killer(SICK));
+        dealloc_killer(kptr);
 }
 
 void
@@ -149,7 +162,7 @@ make_slimed(long xtime, const char *msg)
 {
     long old = Slimed;
 
-#if 0
+#if 0   /* tell player even if hero is unconscious */
     if (Unaware)
         msg = 0;
 #endif
@@ -157,10 +170,17 @@ make_slimed(long xtime, const char *msg)
     if ((xtime != 0L) ^ (old != 0L)) {
         context.botl = TRUE;
         if (msg)
-            pline1(msg);
+            pline("%s", msg);
     }
-    if (!Slimed)
+    if (!Slimed) {
         dealloc_killer(find_delayed_killer(SLIMED));
+        /* fake appearance is set late in turn-to-slime countdown */
+        if (U_AP_TYPE == M_AP_MONSTER
+            && youmonst.mappearance == PM_GREEN_SLIME) {
+            youmonst.m_ap_type = M_AP_NOTHING;
+            youmonst.mappearance = 0;
+        }
+    }
 }
 
 /* start or stop petrification */
@@ -169,7 +189,7 @@ make_stoned(long xtime, const char *msg, int killedby, const char *killername)
 {
     long old = Stoned;
 
-#if 0
+#if 0   /* tell player even if hero is unconscious */
     if (Unaware)
         msg = 0;
 #endif
@@ -177,7 +197,7 @@ make_stoned(long xtime, const char *msg, int killedby, const char *killername)
     if ((xtime != 0L) ^ (old != 0L)) {
         context.botl = TRUE;
         if (msg)
-            pline1(msg);
+            pline("%s", msg);
     }
     if (!Stoned)
         dealloc_killer(find_delayed_killer(STONED));
@@ -272,30 +292,41 @@ make_blinded(long xtime, boolean talk)
     set_itimeout(&Blinded, xtime);
 
     if (u_could_see ^ can_see_now) { /* one or the other but not both */
-        context.botl = TRUE;
-        vision_full_recalc = 1; /* blindness just got toggled */
-        /* this vision recalculation used to be deferred until
-           moveloop(), but that made it possible for vision
-           irregularities to occur (cited case was force bolt
-           hitting adjacent potion of blindness and then a
-           secret door; hero was blinded by vapors but then
-           got the message "a door appears in the wall") */
-        vision_recalc(0);
-        if (Blind_telepat || Infravision)
-            see_monsters();
-
-        /* avoid either of the sequences
-           "Sting starts glowing", [become blind], "Sting stops quivering" or
-           "Sting starts quivering", [regain sight], "Sting stops glowing"
-           by giving "Sting is quivering" when becoming blind or
-           "Sting is glowing" when regaining sight so that the eventual
-           "stops" message matches */
-        if (warn_obj_cnt && uwep && (EWarn_of_mon & W_WEP) != 0L)
-            Sting_effects(-1);
-        /* update dknown flag for inventory picked up while blind */
-        if (can_see_now)
-            learn_unseen_invent();
+        toggle_blindness();
     }
+}
+
+/* blindness has just started or just ended--caller enforces that;
+   called by Blindf_on(), Blindf_off(), and make_blinded() */
+void
+toggle_blindness()
+{
+    boolean Stinging = (uwep && (EWarn_of_mon & W_WEP) != 0L);
+
+    /* blindness has just been toggled */
+    context.botl = TRUE; /* status conditions need update */
+    vision_full_recalc = 1; /* vision has changed */
+    /* this vision recalculation used to be deferred until moveloop(),
+       but that made it possible for vision irregularities to occur
+       (cited case was force bolt hitting an adjacent potion of blindness
+       and then a secret door; hero was blinded by vapors but then got the
+       message "a door appears in the wall" because wall spot was IN_SIGHT) */
+    vision_recalc(0);
+    if (Blind_telepat || Infravision || Stinging)
+        see_monsters(); /* also counts EWarn_of_mon monsters */
+    /*
+     * Avoid either of the sequences
+     * "Sting starts glowing", [become blind], "Sting stops quivering" or
+     * "Sting starts quivering", [regain sight], "Sting stops glowing"
+     * by giving "Sting is quivering" when becoming blind or
+     * "Sting is glowing" when regaining sight so that the eventual
+     * "stops" message matches the most recent "Sting is ..." one.
+     */
+    if (Stinging)
+        Sting_effects(-1);
+    /* update dknown flag for inventory picked up while blind */
+    if (!Blind)
+        learn_unseen_invent();
 }
 
 boolean
@@ -383,6 +414,16 @@ make_deaf(long xtime, boolean talk)
         if (talk)
             You(old ? "can hear again." : "are unable to hear anything.");
     }
+}
+
+/* set or clear "slippery fingers" */
+void
+make_glib(int xtime)
+{
+    set_itimeout(&Glib, xtime);
+    /* may change "(being worn)" to "(being worn; slippery)" or vice versa */
+    if (uarmg)
+        update_inventory();
 }
 
 void
@@ -558,8 +599,7 @@ peffects(register struct obj *otmp)
                the spell or with a unihorn; this is better than full healing
                in that it can restore all of them, not just half, and a
                blessed potion restores them all at once */
-            if (otmp->otyp == POT_RESTORE_ABILITY &&
-                u.ulevel < u.ulevelmax) {
+            if (otmp->otyp == POT_RESTORE_ABILITY && u.ulevel < u.ulevelmax) {
                 do {
                     pluslvl(FALSE);
                 } while (u.ulevel < u.ulevelmax && otmp->blessed);
@@ -569,9 +609,9 @@ peffects(register struct obj *otmp)
     case POT_HALLUCINATION:
         if (Hallucination || Halluc_resistance)
             nothing++;
-        (void) make_hallucinated(
-            itimeout_incr(HHallucination, rn1(200, 600 - 300 * bcsign(otmp))),
-            TRUE, 0L);
+        (void) make_hallucinated(itimeout_incr(HHallucination,
+                                          rn1(200, 600 - 300 * bcsign(otmp))),
+                                 TRUE, 0L);
         break;
     case POT_WATER:
         if (!otmp->blessed && !otmp->cursed) {
@@ -866,9 +906,9 @@ peffects(register struct obj *otmp)
         }
         break;
     case POT_SPEED:
+        /* skip when mounted; heal_legs() would heal steed's legs */
         if (Wounded_legs && !otmp->cursed && !u.usteed) {
-            /* heal_legs() would heal steeds legs */
-            heal_legs();
+            heal_legs(0);
             unkn++;
             break;
         }
@@ -1110,6 +1150,8 @@ healup(int nhp, int nxtra, register boolean curesick, register boolean cureblind
            mundane 'dirt', but if it doesn't, blindness isn't cured */
         u.ucreamed = 0;
         make_blinded(0L, TRUE);
+        /* heal deafness too */
+        make_deaf(0L, TRUE);
     }
     if (curesick) {
         make_vomiting(0L, TRUE);
@@ -1206,6 +1248,15 @@ H2Opotion_dip(struct obj *potion,
                 pline("%s %s.", objphrase, glowcolor);
             iflags.last_msg = PLNMSG_OBJ_GLOWS;
             targobj->bknown = !Hallucination;
+        } else {
+            /* didn't see what happened:  forget the BUC state if that was
+               known unless the bless/curse state of the water is known;
+               without this, hero would know the new state even without
+               seeing the glow; priest[ess] will immediately relearn it */
+            if (!potion->bknown || !potion->dknown)
+                targobj->bknown = 0;
+            /* [should the bknown+dknown exception require that water
+               be discovered or at least named?] */
         }
         /* potions of water are the only shop goods whose price depends
            on their curse/bless state */
@@ -1346,7 +1397,7 @@ potionhit(struct monst *mon, struct obj *obj, int how)
             /*FALLTHRU*/
         case POT_RESTORE_ABILITY:
         case POT_GAIN_ABILITY:
-        do_healing:
+ do_healing:
             angermon = FALSE;
             if (mon->mhp < mon->mhpmax) {
                 mon->mhp = mon->mhpmax;
@@ -1368,7 +1419,7 @@ potionhit(struct monst *mon, struct obj *obj, int how)
                     pline("%s looks unharmed.", Monnam(mon));
                 break;
             }
-        do_illness:
+ do_illness:
             if ((mon->mhpmax > 3) && !resist(mon, POTION_CLASS, 0, NOTELL))
                 mon->mhpmax /= 2;
             if ((mon->mhp > 2) && !resist(mon, POTION_CLASS, 0, NOTELL))
@@ -1431,7 +1482,7 @@ potionhit(struct monst *mon, struct obj *obj, int how)
                         wake_nearto(tx, ty, mon->data->mlevel * 10);
                     mon->mhp -= d(2, 6);
                     /* should only be by you */
-                    if (mon->mhp < 1)
+                    if (DEADMONSTER(mon))
                         killed(mon);
                     else if (is_were(mon->data) && !is_human(mon->data))
                         new_were(mon); /* revert to human */
@@ -1454,7 +1505,7 @@ potionhit(struct monst *mon, struct obj *obj, int how)
                     pline("%s rusts.", Monnam(mon));
                 mon->mhp -= d(1, 6);
                 /* should only be by you */
-                if (mon->mhp < 1)
+                if (DEADMONSTER(mon))
                     killed(mon);
             }
             break;
@@ -1469,7 +1520,7 @@ potionhit(struct monst *mon, struct obj *obj, int how)
                 if (!is_silent(mon->data))
                     wake_nearto(tx, ty, mon->data->mlevel * 10);
                 mon->mhp -= d(obj->cursed ? 2 : 1, obj->blessed ? 4 : 8);
-                if (mon->mhp < 1) {
+                if (DEADMONSTER(mon)) {
                     if (your_fault)
                         killed(mon);
                     else
@@ -1490,7 +1541,7 @@ potionhit(struct monst *mon, struct obj *obj, int how)
         */
         }
         /* target might have been killed */
-        if (mon->mhp > 0) {
+        if (!DEADMONSTER(mon)) {
             if (angermon)
                 wakeup(mon, TRUE);
             else
@@ -1591,8 +1642,10 @@ potionbreathe(register struct obj *obj)
         }
         if (obj->blessed)
             cureblind = TRUE;
-        if (cureblind)
+        if (cureblind) {
             make_blinded(0L, !u.ucreamed);
+            make_deaf(0L, TRUE);
+        }
         exercise(A_CON, TRUE);
         break;
     case POT_SICKNESS:
@@ -1706,41 +1759,33 @@ potionbreathe(register struct obj *obj)
 STATIC_OVL short
 mixtype(register struct obj *o1, register struct obj *o2)
 {
+    int o1typ = o1->otyp, o2typ = o2->otyp;
+
     /* cut down on the number of cases below */
     if (o1->oclass == POTION_CLASS
-        && (o2->otyp == POT_GAIN_LEVEL || o2->otyp == POT_GAIN_ENERGY
-            || o2->otyp == POT_HEALING || o2->otyp == POT_EXTRA_HEALING
-            || o2->otyp == POT_FULL_HEALING || o2->otyp == POT_ENLIGHTENMENT
-            || o2->otyp == POT_FRUIT_JUICE)) {
-        struct obj *swp;
-
-        swp = o1;
-        o1 = o2;
-        o2 = swp;
+        && (o2typ == POT_GAIN_LEVEL || o2typ == POT_GAIN_ENERGY
+            || o2typ == POT_HEALING || o2typ == POT_EXTRA_HEALING
+            || o2typ == POT_FULL_HEALING || o2typ == POT_ENLIGHTENMENT
+            || o2typ == POT_FRUIT_JUICE)) {
+        /* swap o1 and o2 */
+        o1typ = o2->otyp;
+        o2typ = o1->otyp;
     }
 
-    switch (o1->otyp) {
+    switch (o1typ) {
     case POT_HEALING:
-        switch (o2->otyp) {
-        case POT_SPEED:
-        case POT_GAIN_LEVEL:
-        case POT_GAIN_ENERGY:
+        if (o2typ == POT_SPEED)
             return POT_EXTRA_HEALING;
-        }
+        /*FALLTHRU*/
     case POT_EXTRA_HEALING:
-        switch (o2->otyp) {
-        case POT_GAIN_LEVEL:
-        case POT_GAIN_ENERGY:
-            return POT_FULL_HEALING;
-        }
     case POT_FULL_HEALING:
-        switch (o2->otyp) {
-        case POT_GAIN_LEVEL:
-        case POT_GAIN_ENERGY:
-            return POT_GAIN_ABILITY;
-        }
+        if (o2typ == POT_GAIN_LEVEL || o2typ == POT_GAIN_ENERGY)
+            return (o1typ == POT_HEALING) ? POT_EXTRA_HEALING
+                   : (o1typ == POT_EXTRA_HEALING) ? POT_FULL_HEALING
+                     : POT_GAIN_ABILITY;
+        /*FALLTHRU*/
     case UNICORN_HORN:
-        switch (o2->otyp) {
+        switch (o2typ) {
         case POT_SICKNESS:
             return POT_FRUIT_JUICE;
         case POT_HALLUCINATION:
@@ -1750,12 +1795,12 @@ mixtype(register struct obj *o1, register struct obj *o2)
         }
         break;
     case AMETHYST: /* "a-methyst" == "not intoxicated" */
-        if (o2->otyp == POT_BOOZE)
+        if (o2typ == POT_BOOZE)
             return POT_FRUIT_JUICE;
         break;
     case POT_GAIN_LEVEL:
     case POT_GAIN_ENERGY:
-        switch (o2->otyp) {
+        switch (o2typ) {
         case POT_CONFUSION:
             return (rn2(3) ? POT_BOOZE : POT_ENLIGHTENMENT);
         case POT_HEALING:
@@ -1771,7 +1816,7 @@ mixtype(register struct obj *o1, register struct obj *o2)
         }
         break;
     case POT_FRUIT_JUICE:
-        switch (o2->otyp) {
+        switch (o2typ) {
         case POT_SICKNESS:
             return POT_SICKNESS;
         case POT_ENLIGHTENMENT:
@@ -1783,7 +1828,7 @@ mixtype(register struct obj *o1, register struct obj *o2)
         }
         break;
     case POT_ENLIGHTENMENT:
-        switch (o2->otyp) {
+        switch (o2typ) {
         case POT_LEVITATION:
             if (rn2(3))
                 return POT_GAIN_LEVEL;
@@ -1891,26 +1936,22 @@ dodip()
                            5, 95)) {
             pline1(nothing_happens);
         } else {
-            boolean was_wep, was_swapwep, was_quiver;
             short save_otyp = obj->otyp;
 
             /* KMH, conduct */
             u.uconduct.polypiles++;
 
-            was_wep = (obj == uwep);
-            was_swapwep = (obj == uswapwep);
-            was_quiver = (obj == uquiver);
-
             obj = poly_obj(obj, STRANGE_OBJECT);
 
-            if (was_wep)
-                setuwep(obj);
-            else if (was_swapwep)
-                setuswapwep(obj);
-            else if (was_quiver)
-                setuqwep(obj);
-
-            if (obj->otyp != save_otyp) {
+            /*
+             * obj might be gone:
+             *  poly_obj() -> set_wear() -> Amulet_on() -> useup()
+             * if obj->otyp is worn amulet and becomes AMULET_OF_CHANGE.
+             */
+            if (!obj) {
+                makeknown(POT_POLYMORPH);
+                return 1;
+            } else if (obj->otyp != save_otyp) {
                 makeknown(POT_POLYMORPH);
                 useup(potion);
                 prinv((char *) 0, obj, 0L);
@@ -1949,6 +1990,8 @@ dodip()
         pline("%s %s %s with %s%s...", qbuf, simpleonames(obj),
               otense(obj, "mix"), (potion->quan > 1L) ? "one of " : "",
               thesimpleoname(potion));
+        /* get rid of 'dippee' before potential perm_invent updates */
+        useup(potion); /* now gone */
         /* Mixing potions is dangerous...
            KMH, balance patch -- acid is particularly unstable */
         if (obj->cursed || obj->otyp == POT_ACID || !rn2(10)) {
@@ -1957,13 +2000,12 @@ dodip()
                around for potionbreathe() [and we can't set obj->in_use
                to 'amt' because that's not implemented] */
             obj->in_use = 1;
-            pline("BOOM!  They explode!");
+            pline("%sThey explode!", !Deaf ? "BOOM!  " : "");
             wake_nearto(u.ux, u.uy, (BOLT_LIM + 1) * (BOLT_LIM + 1));
             exercise(A_STR, FALSE);
             if (!breathless(youmonst.data) || haseyes(youmonst.data))
                 potionbreathe(obj);
             useupall(obj);
-            useup(potion);
             losehp(amt + rnd(9), /* not physical damage */
                    "alchemic blast", KILLED_BY_AN);
             return 1;
@@ -1976,6 +2018,8 @@ dodip()
         if (mixture != STRANGE_OBJECT) {
             obj->otyp = mixture;
         } else {
+            struct obj *otmp;
+
             switch (obj->odiluted ? 1 : rnd(8)) {
             case 1:
                 obj->otyp = POT_WATER;
@@ -1984,18 +2028,15 @@ dodip()
             case 3:
                 obj->otyp = POT_SICKNESS;
                 break;
-            case 4: {
-                struct obj *otmp = mkobj(POTION_CLASS, FALSE);
-
+            case 4:
+                otmp = mkobj(POTION_CLASS, FALSE);
                 obj->otyp = otmp->otyp;
                 obfree(otmp, (struct obj *) 0);
                 break;
-            }
             default:
                 useupall(obj);
-                useup(potion);
-                if (!Blind)
-                    pline_The("mixture glows brightly and evaporates.");
+                pline_The("mixture %sevaporates.",
+                          !Blind ? "glows brightly and " : "");
                 return 1;
             }
         }
@@ -2008,7 +2049,6 @@ dodip()
                       hcolor(OBJ_DESCR(objects[obj->otyp])));
         }
 
-        useup(potion);
         /* this is required when 'obj' was split off from a bigger stack,
            so that 'obj' will now be assigned its own inventory slot;
            it has a side-effect of merging 'obj' into another compatible
@@ -2022,11 +2062,16 @@ dodip()
     }
 
     if (potion->otyp == POT_ACID && obj->otyp == CORPSE
-        && obj->corpsenm == PM_LICHEN && !Blind) {
+        && obj->corpsenm == PM_LICHEN) {
         pline("%s %s %s around the edges.", The(cxname(obj)),
-              otense(obj, "turn"),
-              potion->odiluted ? hcolor(NH_ORANGE) : hcolor(NH_RED));
+              otense(obj, "turn"), Blind ? "wrinkled"
+                                   : potion->odiluted ? hcolor(NH_ORANGE)
+                                     : hcolor(NH_RED));
         potion->in_use = FALSE; /* didn't go poof */
+        if (potion->dknown
+            && !objects[potion->otyp].oc_name_known
+            && !objects[potion->otyp].oc_uname)
+            docall(potion);
         return 1;
     }
 
@@ -2068,8 +2113,8 @@ dodip()
             fire_damage(obj, TRUE, u.ux, u.uy);
         } else if (potion->cursed) {
             pline_The("potion spills and covers your %s with oil.",
-                      makeplural(body_part(FINGER)));
-            incr_itimeout(&Glib, d(2, 10));
+                      fingers_or_gloves(TRUE));
+            make_glib((int) (Glib & TIMEOUT) + d(2, 10));
         } else if (obj->oclass != WEAPON_CLASS && !is_weptool(obj)) {
             /* the following cases apply only to weapons */
             goto more_dips;
@@ -2080,10 +2125,14 @@ dodip()
         } else if ((!is_rustprone(obj) && !is_corrodeable(obj))
                    || is_ammo(obj) || (!obj->oeroded && !obj->oeroded2)) {
             /* uses up potion, doesn't set obj->greased */
-            pline("%s %s with an oily sheen.", Yname2(obj),
-                  otense(obj, "gleam"));
+            if (!Blind)
+                pline("%s %s with an oily sheen.", Yname2(obj),
+                      otense(obj, "gleam"));
+            else /*if (!uarmg)*/
+                pline("%s %s oily.", Yname2(obj), otense(obj, "feel"));
         } else {
-            pline("%s %s less %s.", Yname2(obj), otense(obj, "are"),
+            pline("%s %s less %s.", Yname2(obj),
+                  otense(obj, !Blind ? "are" : "feel"),
                   (obj->oeroded && obj->oeroded2)
                       ? "corroded and rusty"
                       : obj->oeroded ? "rusty" : "corroded");
@@ -2094,11 +2143,12 @@ dodip()
             wisx = TRUE;
         }
         exercise(A_WIS, wisx);
-        makeknown(potion->otyp);
+        if (potion->dknown)
+            makeknown(potion->otyp);
         useup(potion);
         return 1;
     }
-more_dips:
+ more_dips:
 
     /* Allow filling of MAGIC_LAMPs to prevent identification by player */
     if ((obj->otyp == OIL_LAMP || obj->otyp == MAGIC_LAMP)
@@ -2121,13 +2171,17 @@ more_dips:
         } else {
             You("fill %s with oil.", yname(obj));
             check_unpaid(potion);        /* Yendorian Fuel Tax */
-            obj->age += 2 * potion->age; /* burns more efficiently */
+            /* burns more efficiently in a lamp than in a bottle;
+               diluted potion provides less benefit but we don't attempt
+               to track that the lamp now also has some non-oil in it */
+            obj->age += (!potion->odiluted ? 4L : 3L) * potion->age / 2L;
             if (obj->age > 1500L)
                 obj->age = 1500L;
             useup(potion);
             exercise(A_WIS, TRUE);
         }
-        makeknown(POT_OIL);
+        if (potion->dknown)
+            makeknown(POT_OIL);
         obj->spe = 1;
         update_inventory();
         return 1;
@@ -2165,16 +2219,24 @@ more_dips:
             singlepotion->dknown = FALSE;
         } else {
             singlepotion->dknown = !Hallucination;
+            *newbuf = '\0';
             if (mixture == POT_WATER && singlepotion->dknown)
                 Sprintf(newbuf, "clears");
-            else
+            else if (!Blind)
                 Sprintf(newbuf, "turns %s",
                         hcolor(OBJ_DESCR(objects[mixture])));
-            pline_The("%spotion%s %s.", oldbuf,
-                      more_than_one ? " that you dipped into" : "", newbuf);
-            if (!objects[old_otyp].oc_uname
-                && !objects[old_otyp].oc_name_known && old_dknown) {
+            if (*newbuf)
+                pline_The("%spotion%s %s.", oldbuf,
+                          more_than_one ? " that you dipped into" : "",
+                          newbuf);
+            else
+                pline("Something happens.");
+
+            if (old_dknown
+                && !objects[old_otyp].oc_name_known
+                && !objects[old_otyp].oc_uname) {
                 struct obj fakeobj;
+
                 fakeobj = zeroobj;
                 fakeobj.dknown = 1;
                 fakeobj.otyp = old_otyp;
@@ -2183,9 +2245,11 @@ more_dips:
             }
         }
         obj_extract_self(singlepotion);
-        singlepotion =
-            hold_another_object(singlepotion, "You juggle and drop %s!",
-                                doname(singlepotion), (const char *) 0);
+        singlepotion = hold_another_object(singlepotion,
+                                           "You juggle and drop %s!",
+                                           doname(singlepotion),
+                                           (const char *) 0);
+        nhUse(singlepotion);
         update_inventory();
         return 1;
     }
@@ -2193,8 +2257,9 @@ more_dips:
     pline("Interesting...");
     return 1;
 
-poof:
-    if (!objects[potion->otyp].oc_name_known
+ poof:
+    if (potion->dknown
+        && !objects[potion->otyp].oc_name_known
         && !objects[potion->otyp].oc_uname)
         docall(potion);
     useup(potion);

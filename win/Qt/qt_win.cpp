@@ -1688,7 +1688,7 @@ void NetHackQtMapWindow::paintEvent(QPaintEvent* event)
 
 		painter.setPen( green );
 		/* map glyph to character and color */
-    		(void)mapglyph(g, &och, &color, &special, i, j);
+    		(void)mapglyph(g, &och, &color, &special, i, j, 0);
 		ch = (uchar)och;
 #ifdef TEXTCOLOR
 		painter.setPen( nhcolor_to_pen(color) );
@@ -2906,7 +2906,7 @@ int NetHackQtMenuWindow::SelectMenu(int h, MENU_ITEM_P **menu_list)
 	if (dialog->result()<0)
 	    qApp->enter_loop();
     }
-    //if ( (nhid != WIN_INVEN || !flags.perm_invent) ) // doesn't work yet
+    //if ( (nhid != WIN_INVEN || !iflags.perm_invent) ) // doesn't work yet
     {
 	dialog->hide();
     }
@@ -3461,7 +3461,7 @@ void NetHackQtInvUsageWindow::drawWorn(QPainter& painter, obj* nhobj, int x, int
 {
     short int glyph;
     if (nhobj)
-	glyph=obj_to_glyph(nhobj);
+	glyph=obj_to_glyph(nhobj, rn2_on_display_rng);
     else if (canbe)
 	glyph=cmap_to_glyph(S_room);
     else
@@ -4840,7 +4840,7 @@ void NetHackQtBind::qt_update_inventory()
     if (main)
 	main->updateInventory();
     /* doesn't work yet
-    if (program_state.something_worth_saving && flags.perm_invent)
+    if (program_state.something_worth_saving && iflags.perm_invent)
         display_inventory(NULL, FALSE);
     */
 }
@@ -5229,6 +5229,7 @@ struct window_procs Qt_procs = {
 	WC_FONT_MAP|WC_TILE_FILE|WC_TILE_WIDTH|WC_TILE_HEIGHT|
 	WC_PLAYER_SELECTION|WC_SPLASH_SCREEN,
     0L,
+    {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},   /* color availability */
     NetHackQtBind::qt_init_nhwindows,
     NetHackQtBind::qt_player_selection,
     NetHackQtBind::qt_askname,

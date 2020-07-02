@@ -1,4 +1,4 @@
-/* NetHack 3.6	region.c	$NHDT-Date: 1496087244 2017/05/29 19:47:24 $  $NHDT-Branch: NetHack-3.6.0 $:$NHDT-Revision: 1.40 $ */
+/* NetHack 3.6	region.c	$NHDT-Date: 1573957877 2019/11/17 02:31:17 $  $NHDT-Branch: NetHack-3.6 $:$NHDT-Revision: 1.45 $ */
 /* Copyright (c) 1996 by Jean-Christophe Collet  */
 /* NetHack may be freely redistributed.  See license for details. */
 
@@ -323,6 +323,11 @@ remove_region(NhRegion *reg)
     if (i == n_regions)
         return;
 
+    /* remove region before potential newsym() calls, but don't free it yet */
+    if (--n_regions != i)
+        regions[i] = regions[n_regions];
+    regions[n_regions] = (NhRegion *) 0;
+
     /* Update screen if necessary */
     reg->ttl = -2L; /* for visible_region_at */
     if (reg->visible)
@@ -332,9 +337,6 @@ remove_region(NhRegion *reg)
                     newsym(x, y);
 
     free_region(reg);
-    regions[i] = regions[n_regions - 1];
-    regions[n_regions - 1] = (NhRegion *) 0;
-    n_regions--;
 }
 
 /*
@@ -391,7 +393,7 @@ run_regions()
                 struct monst *mtmp =
                     find_mid(regions[i]->monsters[j], FM_FMON);
 
-                if (!mtmp || mtmp->mhp <= 0
+                if (!mtmp || DEADMONSTER(mtmp)
                     || (*callbacks[f_indx])(regions[i], mtmp)) {
                     /* The monster died, remove it from list */
                     k = (regions[i]->n_monst -= 1);
@@ -410,26 +412,27 @@ run_regions()
 boolean
 in_out_region(xchar x, xchar y)
 {
-    int i, f_indx;
+    int i, f_indx = 0;
 
-    /* First check if we can do the move */
+    /* First check if hero can do the move */
     for (i = 0; i < n_regions; i++) {
-        if (inside_region(regions[i], x, y) && !hero_inside(regions[i])
-            && !regions[i]->attach_2_u) {
-            if ((f_indx = regions[i]->can_enter_f) != NO_CALLBACK)
-                if (!(*callbacks[f_indx])(regions[i], (genericptr_t) 0))
-                    return FALSE;
-        } else if (hero_inside(regions[i]) && !inside_region(regions[i], x, y)
-                   && !regions[i]->attach_2_u) {
-            if ((f_indx = regions[i]->can_leave_f) != NO_CALLBACK)
-                if (!(*callbacks[f_indx])(regions[i], (genericptr_t) 0))
-                    return FALSE;
+        if (regions[i]->attach_2_u)
+            continue;
+        if (inside_region(regions[i], x, y)
+            ? (!hero_inside(regions[i])
+               && (f_indx = regions[i]->can_enter_f) != NO_CALLBACK)
+            : (hero_inside(regions[i])
+               && (f_indx = regions[i]->can_leave_f) != NO_CALLBACK)) {
+            if (!(*callbacks[f_indx])(regions[i], (genericptr_t) 0))
+                return FALSE;
         }
     }
 
-    /* Callbacks for the regions we do leave */
-    for (i = 0; i < n_regions; i++)
-        if (hero_inside(regions[i]) && !regions[i]->attach_2_u
+    /* Callbacks for the regions hero does leave */
+    for (i = 0; i < n_regions; i++) {
+        if (regions[i]->attach_2_u)
+            continue;
+        if (hero_inside(regions[i])
             && !inside_region(regions[i], x, y)) {
             clear_hero_inside(regions[i]);
             if (regions[i]->leave_msg != (const char *) 0)
@@ -437,10 +440,13 @@ in_out_region(xchar x, xchar y)
             if ((f_indx = regions[i]->leave_f) != NO_CALLBACK)
                 (void) (*callbacks[f_indx])(regions[i], (genericptr_t) 0);
         }
+    }
 
-    /* Callbacks for the regions we do enter */
-    for (i = 0; i < n_regions; i++)
-        if (!hero_inside(regions[i]) && !regions[i]->attach_2_u
+    /* Callbacks for the regions hero does enter */
+    for (i = 0; i < n_regions; i++) {
+        if (regions[i]->attach_2_u)
+            continue;
+        if (!hero_inside(regions[i])
             && inside_region(regions[i], x, y)) {
             set_hero_inside(regions[i]);
             if (regions[i]->enter_msg != (const char *) 0)
@@ -448,51 +454,57 @@ in_out_region(xchar x, xchar y)
             if ((f_indx = regions[i]->enter_f) != NO_CALLBACK)
                 (void) (*callbacks[f_indx])(regions[i], (genericptr_t) 0);
         }
+    }
+
     return TRUE;
 }
 
 /*
- * check whether a monster enters/leaves one or more region.
-*/
+ * check whether a monster enters/leaves one or more regions.
+ */
 boolean
 m_in_out_region(struct monst *mon, xchar x, xchar y)
 {
-    int i, f_indx;
+    int i, f_indx = 0;
 
-    /* First check if we can do the move */
+    /* First check if mon can do the move */
     for (i = 0; i < n_regions; i++) {
-        if (inside_region(regions[i], x, y) && !mon_in_region(regions[i], mon)
-            && regions[i]->attach_2_m != mon->m_id) {
-            if ((f_indx = regions[i]->can_enter_f) != NO_CALLBACK)
-                if (!(*callbacks[f_indx])(regions[i], mon))
-                    return FALSE;
-        } else if (mon_in_region(regions[i], mon)
-                   && !inside_region(regions[i], x, y)
-                   && regions[i]->attach_2_m != mon->m_id) {
-            if ((f_indx = regions[i]->can_leave_f) != NO_CALLBACK)
-                if (!(*callbacks[f_indx])(regions[i], mon))
-                    return FALSE;
+        if (regions[i]->attach_2_m == mon->m_id)
+            continue;
+        if (inside_region(regions[i], x, y)
+            ? (!mon_in_region(regions[i], mon)
+               && (f_indx = regions[i]->can_enter_f) != NO_CALLBACK)
+            : (mon_in_region(regions[i], mon)
+               && (f_indx = regions[i]->can_leave_f) != NO_CALLBACK)) {
+            if (!(*callbacks[f_indx])(regions[i], mon))
+                return FALSE;
         }
     }
 
-    /* Callbacks for the regions we do leave */
-    for (i = 0; i < n_regions; i++)
+    /* Callbacks for the regions mon does leave */
+    for (i = 0; i < n_regions; i++) {
+        if (regions[i]->attach_2_m == mon->m_id)
+            continue;
         if (mon_in_region(regions[i], mon)
-            && regions[i]->attach_2_m != mon->m_id
             && !inside_region(regions[i], x, y)) {
             remove_mon_from_reg(regions[i], mon);
             if ((f_indx = regions[i]->leave_f) != NO_CALLBACK)
                 (void) (*callbacks[f_indx])(regions[i], mon);
         }
+    }
 
-    /* Callbacks for the regions we do enter */
-    for (i = 0; i < n_regions; i++)
-        if (!hero_inside(regions[i]) && !regions[i]->attach_2_u
+    /* Callbacks for the regions mon does enter */
+    for (i = 0; i < n_regions; i++) {
+        if (regions[i]->attach_2_m == mon->m_id)
+            continue;
+        if (!mon_in_region(regions[i], mon)
             && inside_region(regions[i], x, y)) {
             add_mon_to_reg(regions[i], mon);
             if ((f_indx = regions[i]->enter_f) != NO_CALLBACK)
                 (void) (*callbacks[f_indx])(regions[i], mon);
         }
+    }
+
     return TRUE;
 }
 
@@ -574,10 +586,12 @@ visible_region_at(xchar x, xchar y)
 {
     register int i;
 
-    for (i = 0; i < n_regions; i++)
-        if (inside_region(regions[i], x, y) && regions[i]->visible
-            && regions[i]->ttl != -2L)
+    for (i = 0; i < n_regions; i++) {
+        if (!regions[i]->visible || regions[i]->ttl == -2L)
+            continue;
+        if (inside_region(regions[i], x, y))
             return regions[i];
+    }
     return (NhRegion *) 0;
 }
 
@@ -818,7 +832,7 @@ enter_force_field(genericptr_t p1, genericptr_t p2)
 
     if (p2 == (genericptr_t) 0) { /* That means the player */
         if (!Blind)
-            You("bump into %s. Ouch!",
+            You("bump into %s.  Ouch!",
                 Hallucination ? "an invisible tree"
                               : "some kind of invisible wall");
         else
@@ -901,10 +915,16 @@ inside_gas_cloud(genericptr_t p1, genericptr_t p2)
     struct monst *mtmp;
     int dam;
 
+    /*
+     * Gas clouds can't be targetted at water locations, but they can
+     * start next to water and spread over it.
+     */
+
     reg = (NhRegion *) p1;
     dam = reg->arg.a_int;
     if (p2 == (genericptr_t) 0) { /* This means *YOU* Bozo! */
-        if (u.uinvulnerable || nonliving(youmonst.data) || Breathless)
+        if (u.uinvulnerable || nonliving(youmonst.data) || Breathless
+            || Underwater)
             return FALSE;
         if (!Blind) {
             Your("%s sting.", makeplural(body_part(EYE)));
@@ -927,6 +947,11 @@ inside_gas_cloud(genericptr_t p1, genericptr_t p2)
            adult green dragon is not affected by gas cloud, baby one is */
         if (!(nonliving(mtmp->data) || is_vampshifter(mtmp))
             && !breathless(mtmp->data)
+            /* not is_swimmer(); assume that non-fish are swimming on
+               the surface and breathing the air above it periodically
+               unless located at water spot on plane of water */
+            && !((mtmp->data->mlet == S_EEL || Is_waterlevel(&u.uz))
+                 && is_pool(mtmp->mx, mtmp->my))
             /* exclude monsters with poison gas breath attack:
                adult green dragon and Chromatic Dragon (and iron golem,
                but nonliving() and breathless() tests also catch that) */
@@ -943,12 +968,12 @@ inside_gas_cloud(genericptr_t p1, genericptr_t p2)
             if (resists_poison(mtmp))
                 return FALSE;
             mtmp->mhp -= rnd(dam) + 5;
-            if (mtmp->mhp <= 0) {
+            if (DEADMONSTER(mtmp)) {
                 if (heros_fault(reg))
                     killed(mtmp);
                 else
                     monkilled(mtmp, "gas cloud", AD_DRST);
-                if (mtmp->mhp <= 0) { /* not lifesaved */
+                if (DEADMONSTER(mtmp)) { /* not lifesaved */
                     return TRUE;
                 }
             }

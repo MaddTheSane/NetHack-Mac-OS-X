@@ -1,4 +1,4 @@
-/* NetHack 3.6	unixmain.c	$NHDT-Date: 1432512788 2015/05/25 00:13:08 $  $NHDT-Branch: master $:$NHDT-Revision: 1.52 $ */
+/* NetHack 3.6	unixmain.c	$NHDT-Date: 1570408210 2019/10/07 00:30:10 $  $NHDT-Branch: NetHack-3.6 $:$NHDT-Revision: 1.70 $ */
 /* Copyright (c) Stichting Mathematisch Centrum, Amsterdam, 1985. */
 /*-Copyright (c) Robert Patrick Rankin, 2011. */
 /* NetHack may be freely redistributed.  See license for details. */
@@ -113,10 +113,24 @@ main(int argc, char *argv[])
         dir = nh_getenv("HACKDIR");
 
     if (argc > 1) {
-        if (argcheck(argc, argv, ARG_VERSION))
+        if (argcheck(argc, argv, ARG_VERSION) == 2)
             exit(EXIT_SUCCESS);
 
-        if (!strncmp(argv[1], "-d", 2) && argv[1][2] != 'e') {
+        if (argcheck(argc, argv, ARG_SHOWPATHS) == 2) {
+#ifdef CHDIR
+            chdirx((char *) 0, 0);
+#endif
+            iflags.initoptions_noterminate = TRUE;
+            initoptions();
+            iflags.initoptions_noterminate = FALSE;
+            reveal_paths();
+            exit(EXIT_SUCCESS);
+        }
+        if (argcheck(argc, argv, ARG_DEBUG) == 1) {
+            argc--;
+            argv++;
+        }
+        if (argc > 1 && !strncmp(argv[1], "-d", 2) && argv[1][2] != 'e') {
             /* avoid matching "-dec" for DECgraphics; since the man page
              * says -d directory, hope nobody's using -desomething_else
              */
@@ -259,7 +273,7 @@ main(int argc, char *argv[])
      * First, try to find and restore a save file for specified character.
      * We'll return here if new game player_selection() renames the hero.
      */
-attempt_restore:
+ attempt_restore:
 
     /*
      * getlock() complains and quits if there is already a game
@@ -343,6 +357,7 @@ attempt_restore:
     return 0;
 }
 
+/* caveat: argv elements might be arbitrary long */
 static void
 process_options(int argc, char *argv[])
 {
@@ -369,11 +384,10 @@ process_options(int argc, char *argv[])
                 load_symset("DECGraphics", PRIMARY);
                 switch_symbols(TRUE);
             } else {
-                raw_printf("Unknown option: %s", *argv);
+                raw_printf("Unknown option: %.60s", *argv);
             }
             break;
         case 'X':
-
             discover = TRUE; wizard = FALSE;
             break;
 #ifdef NEWS
@@ -399,7 +413,7 @@ process_options(int argc, char *argv[])
                 load_symset("RogueIBM", ROGUESET);
                 switch_symbols(TRUE);
             } else {
-                raw_printf("Unknown option: %s", *argv);
+                raw_printf("Unknown option: %.60s", *argv);
             }
             break;
         case 'p': /* profession (role) */
@@ -437,7 +451,7 @@ process_options(int argc, char *argv[])
                 flags.initrole = i;
                 break;
             }
-            /* else raw_printf("Unknown option: %s", *argv); */
+            /* else raw_printf("Unknown option: %.60s", *argv); */
         }
     }
 
@@ -524,8 +538,8 @@ whoami()
 {
     /*
      * Who am i? Algorithm: 1. Use name as specified in NETHACKOPTIONS
-     *			2. Use $USER or $LOGNAME	(if 1. fails)
-     *			3. Use getlogin()		(if 2. fails)
+     *                      2. Use $USER or $LOGNAME    (if 1. fails)
+     *                      3. Use getlogin()           (if 2. fails)
      * The resulting name is overridden by command line options.
      * If everything fails, or if the resulting name is some generic
      * account like "games", "play", "player", "hack" then eventually
@@ -641,20 +655,20 @@ append_slash(char *name)
 boolean
 check_user_string(char *optstr)
 {
-    struct passwd *pw = get_unix_pw();
+    struct passwd *pw;
     int pwlen;
     char *eop, *w;
-    char *pwname;
+    char *pwname = 0;
 
     if (optstr[0] == '*')
         return TRUE; /* allow any user */
-    if (!pw)
-        return FALSE;
     if (sysopt.check_plname)
         pwname = plname;
-    else
+    else if ((pw = get_unix_pw()) != 0)
         pwname = pw->pw_name;
-    pwlen = strlen(pwname);
+    if (!pwname || !*pwname)
+        return FALSE;
+    pwlen = (int) strlen(pwname);
     eop = eos(optstr);
     w = optstr;
     while (w + pwlen <= eop) {
@@ -712,7 +726,6 @@ get_login_name()
     struct passwd *pw = get_unix_pw();
 
     buf[0] = '\0';
-
     if (pw)
         (void)strcpy(buf, pw->pw_name);
 
@@ -729,30 +742,64 @@ char *buf;
     /* This should be replaced when there is a Cocoa port. */
     const char *errfmt;
     size_t len;
-    FILE *PB = popen("/usr/bin/pbcopy","w");
-    if(!PB){
-	errfmt = "Unable to start pbcopy (%d)\n";
-	goto error;
+    FILE *PB = popen("/usr/bin/pbcopy", "w");
+
+    if (!PB) {
+        errfmt = "Unable to start pbcopy (%d)\n";
+        goto error;
     }
 
     len = strlen(buf);
     /* Remove the trailing \n, carefully. */
-    if(buf[len-1] == '\n') len--;
+    if (buf[len - 1] == '\n')
+        len--;
 
     /* XXX Sorry, I'm too lazy to write a loop for output this short. */
-    if(len!=fwrite(buf,1,len,PB)){
-	errfmt = "Error sending data to pbcopy (%d)\n";
-	goto error;
+    if (len != fwrite(buf, 1, len, PB)) {
+        errfmt = "Error sending data to pbcopy (%d)\n";
+        goto error;
     }
 
-    if(pclose(PB)!=-1){
-	return;
+    if (pclose(PB) != -1) {
+        return;
     }
     errfmt = "Error finishing pbcopy (%d)\n";
 
-error:
-    raw_printf(errfmt,strerror(errno));
+ error:
+    raw_printf(errfmt, strerror(errno));
 }
+#endif /* __APPLE__ */
+
+unsigned long
+sys_random_seed()
+{
+    unsigned long seed = 0L;
+    unsigned long pid = (unsigned long) getpid();
+    boolean no_seed = TRUE;
+#ifdef DEV_RANDOM
+    FILE *fptr;
+
+    fptr = fopen(DEV_RANDOM, "r");
+    if (fptr) {
+        fread(&seed, sizeof (long), 1, fptr);
+        has_strong_rngseed = TRUE;  /* decl.c */
+        no_seed = FALSE;
+        (void) fclose(fptr);
+    } else {
+        /* leaves clue, doesn't exit */
+        paniclog("sys_random_seed", "falling back to weak seed");
+    }
 #endif
+    if (no_seed) {
+        seed = (unsigned long) getnow(); /* time((TIME_type) 0) */
+        /* Quick dirty band-aid to prevent PRNG prediction */
+        if (pid) {
+            if (!(pid & 3L))
+                pid -= 1L;
+            seed *= pid;
+        }
+    }
+    return seed;
+}
 
 /*unixmain.c*/

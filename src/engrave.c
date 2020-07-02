@@ -1,4 +1,4 @@
-/* NetHack 3.6	engrave.c	$NHDT-Date: 1456304550 2016/02/24 09:02:30 $  $NHDT-Branch: NetHack-3.6.0 $:$NHDT-Revision: 1.61 $ */
+/* NetHack 3.6	engrave.c	$NHDT-Date: 1570318925 2019/10/05 23:42:05 $  $NHDT-Branch: NetHack-3.6 $:$NHDT-Revision: 1.75 $ */
 /* Copyright (c) Stichting Mathematisch Centrum, Amsterdam, 1985. */
 /*-Copyright (c) Robert Patrick Rankin, 2012. */
 /* NetHack may be freely redistributed.  See license for details. */
@@ -7,6 +7,7 @@
 #include "lev.h"
 
 STATIC_VAR NEARDATA struct engr *head_engr;
+STATIC_DCL const char *blengr(void);
 
 char *
 random_engraving(char *outbuf)
@@ -16,7 +17,7 @@ random_engraving(char *outbuf)
     /* a random engraving may come from the "rumors" file,
        or from the "engrave" file (formerly in an array here) */
     if (!rn2(4) || !(rumor = getrumor(0, outbuf, TRUE)) || !*rumor)
-        (void) get_rnd_text(ENGRAVEFILE, outbuf);
+        (void) get_rnd_text(ENGRAVEFILE, outbuf, rn2);
 
     wipeout_text(outbuf, (int) (strlen(outbuf) / 4), 0);
     return outbuf;
@@ -150,7 +151,8 @@ can_reach_floor(boolean check_pit)
     if (u.usteed && P_SKILL(P_RIDING) < P_BASIC)
         return FALSE;
     if (check_pit && !Flying
-        && (t = t_at(u.ux, u.uy)) != 0 && uteetering_at_seen_pit(t))
+        && (t = t_at(u.ux, u.uy)) != 0
+        && (uteetering_at_seen_pit(t) || uescaped_shaft(t)))
         return FALSE;
 
     return (boolean) ((!Levitation || Is_airlevel(&u.uz)
@@ -299,7 +301,6 @@ read_engr_at(int x, int y)
 {
     register struct engr *ep = engr_at(x, y);
     int sensed = 0;
-    char buf[BUFSZ];
 
     /* Sensing an engraving does not require sight,
      * nor does it necessarily imply comprehension (literacy).
@@ -348,17 +349,22 @@ read_engr_at(int x, int y)
             impossible("%s is written in a very strange way.", Something);
             sensed = 1;
         }
+
         if (sensed) {
-            char *et;
-            unsigned maxelen = BUFSZ - sizeof("You feel the words: \"\". ");
-            if (strlen(ep->engr_txt) > maxelen) {
-                (void) strncpy(buf, ep->engr_txt, (int) maxelen);
+            char *et, buf[BUFSZ];
+            int maxelen = (int) (sizeof buf
+                                 /* sizeof "literal" counts terminating \0 */
+                                 - sizeof "You feel the words: \"\".");
+
+            if ((int) strlen(ep->engr_txt) > maxelen) {
+                (void) strncpy(buf, ep->engr_txt, maxelen);
                 buf[maxelen] = '\0';
                 et = buf;
-            } else
+            } else {
                 et = ep->engr_txt;
+            }
             You("%s: \"%s\".", (Blind) ? "feel the words" : "read", et);
-            if (context.run > 1)
+            if (context.run > 0)
                 nomul(0);
         }
     }
@@ -453,6 +459,7 @@ doengrave()
     boolean teleengr = FALSE; /* TRUE if we move the old engraving */
     boolean zapwand = FALSE;  /* TRUE if we remove a wand charge */
     xchar type = DUST;        /* Type of engraving made */
+    xchar oetype = 0;         /* will be set to type of current engraving */
     char buf[BUFSZ];          /* Buffer for final/poly engraving text */
     char ebuf[BUFSZ];         /* Buffer for initial engraving text */
     char fbuf[BUFSZ];         /* Buffer for "your fingers" */
@@ -475,6 +482,8 @@ doengrave()
     ebuf[0] = (char) 0;
     post_engr_text[0] = (char) 0;
     maxelen = BUFSZ - 1;
+    if (oep)
+        oetype = oep->engr_type;
     if (is_demon(youmonst.data) || youmonst.data->mlet == S_VAMPIRE)
         type = ENGR_BLOOD;
 
@@ -657,6 +666,14 @@ doengrave()
                     if (!Blind) {
                         type = (xchar) 0; /* random */
                         (void) random_engraving(buf);
+                    } else {
+                        /* keep the same type so that feels don't
+                           change and only the text is altered,
+                           but you won't know anyway because
+                           you're a _blind writer_ */
+                        if (oetype)
+                            type = oetype;
+                        xcrypt(blengr(), buf);
                     }
                     dengr = TRUE;
                 }
@@ -719,7 +736,7 @@ doengrave()
                 }
                 Strcpy(post_engr_text,
                        (Blind && !Deaf)
-                          ? "You hear drilling!"
+                          ? "You hear drilling!"    /* Deaf-aware */
                           : Blind
                              ? "You feel tremors."
                              : IS_GRAVE(levl[u.ux][u.uy].typ)
@@ -756,7 +773,7 @@ doengrave()
                     doblind = TRUE;
                 } else
                     Strcpy(post_engr_text, !Deaf
-                                ? "You hear crackling!"
+                                ? "You hear crackling!"  /* Deaf-aware */
                                 : "Your hair stands up!");
                 break;
 
@@ -871,7 +888,8 @@ doengrave()
     /* Something has changed the engraving here */
     if (*buf) {
         make_engr_at(u.ux, u.uy, buf, moves, type);
-        pline_The("engraving now reads: \"%s\".", buf);
+        if (!Blind)
+            pline_The("engraving now reads: \"%s\".", buf);
         ptext = FALSE;
     }
     if (zapwand && (otmp->spe < 0)) {
@@ -1253,9 +1271,36 @@ make_grave(int x, int y, const char *str)
     /* Engrave the headstone */
     del_engr_at(x, y);
     if (!str)
-        str = get_rnd_text(EPITAPHFILE, buf);
+        str = get_rnd_text(EPITAPHFILE, buf, rn2);
     make_engr_at(x, y, str, 0L, HEADSTONE);
     return;
+}
+
+static const char blind_writing[][21] = {
+    {0x44, 0x66, 0x6d, 0x69, 0x62, 0x65, 0x22, 0x45, 0x7b, 0x71,
+     0x65, 0x6d, 0x72, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 },
+    {0x51, 0x67, 0x60, 0x7a, 0x7f, 0x21, 0x40, 0x71, 0x6b, 0x71,
+     0x6f, 0x67, 0x63, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
+    {0x49, 0x6d, 0x73, 0x69, 0x62, 0x65, 0x22, 0x4c, 0x61, 0x7c,
+     0x6d, 0x67, 0x24, 0x42, 0x7f, 0x69, 0x6c, 0x77, 0x67, 0x7e, 0x00},
+    {0x4b, 0x6d, 0x6c, 0x66, 0x30, 0x4c, 0x6b, 0x68, 0x7c, 0x7f,
+     0x6f, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
+    {0x51, 0x67, 0x70, 0x7a, 0x7f, 0x6f, 0x67, 0x68, 0x64, 0x71,
+     0x21, 0x4f, 0x6b, 0x6d, 0x7e, 0x72, 0x00, 0x00, 0x00, 0x00, 0x00},
+    {0x4c, 0x63, 0x76, 0x61, 0x71, 0x21, 0x48, 0x6b, 0x7b, 0x75,
+     0x67, 0x63, 0x24, 0x45, 0x65, 0x6b, 0x6b, 0x65, 0x00, 0x00, 0x00},
+    {0x4c, 0x67, 0x68, 0x6b, 0x78, 0x68, 0x6d, 0x76, 0x7a, 0x75,
+     0x21, 0x4f, 0x71, 0x7a, 0x75, 0x6f, 0x77, 0x00, 0x00, 0x00, 0x00},
+    {0x44, 0x66, 0x6d, 0x7c, 0x78, 0x21, 0x50, 0x65, 0x66, 0x65,
+     0x6c, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
+    {0x44, 0x66, 0x73, 0x69, 0x62, 0x65, 0x22, 0x56, 0x7d, 0x63,
+     0x69, 0x76, 0x6b, 0x66, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
+};
+
+STATIC_OVL const char *
+blengr(VOID_ARGS)
+{
+    return blind_writing[rn2(SIZE(blind_writing))];
 }
 
 /*engrave.c*/

@@ -1,4 +1,4 @@
-/* NetHack 3.6	sp_lev.c	$NHDT-Date: 1524287226 2018/04/21 05:07:06 $  $NHDT-Branch: NetHack-3.6.0 $:$NHDT-Revision: 1.98 $ */
+/* NetHack 3.6	sp_lev.c	$NHDT-Date: 1567805254 2019/09/06 21:27:34 $  $NHDT-Branch: NetHack-3.6 $:$NHDT-Revision: 1.117 $ */
 /*      Copyright (c) 1989 by Jean-Christophe Collet */
 /* NetHack may be freely redistributed.  See license for details. */
 
@@ -26,7 +26,7 @@ STATIC_DCL void solidify_map(void);
 STATIC_DCL void splev_stack_init(struct splevstack *);
 STATIC_DCL void splev_stack_done(struct splevstack *);
 STATIC_DCL void splev_stack_push(struct splevstack *,
-                                         struct opvar *);
+								 struct opvar *);
 STATIC_DCL struct opvar *splev_stack_pop(struct splevstack *);
 STATIC_DCL struct splevstack *splev_stack_reverse(struct splevstack *);
 STATIC_DCL struct opvar *opvar_new_str(char *);
@@ -37,17 +37,17 @@ STATIC_DCL struct opvar * opvar_new_region(int,int, int,int);
 #endif /*0*/
 STATIC_DCL struct opvar *opvar_clone(struct opvar *);
 STATIC_DCL struct opvar *opvar_var_conversion(struct sp_coder *,
-                                              struct opvar *);
+											  struct opvar *);
 STATIC_DCL struct splev_var *opvar_var_defined(struct sp_coder *,
-                                               char *);
+											   char *);
 STATIC_DCL struct opvar *splev_stack_getdat(struct sp_coder *,
-                                            xchar);
+											xchar);
 STATIC_DCL struct opvar *splev_stack_getdat_any(struct sp_coder *);
 STATIC_DCL void variable_list_del(struct splev_var *);
 STATIC_DCL void lvlfill_maze_grid(int, int, int, int, schar);
 STATIC_DCL void lvlfill_solid(schar, schar);
 STATIC_DCL void set_wall_property(xchar, xchar, xchar, xchar,
-                                  int);
+								  int);
 STATIC_DCL void shuffle_alignments(void);
 STATIC_DCL void count_features(void);
 STATIC_DCL void remove_boundary_syms(void);
@@ -61,12 +61,12 @@ STATIC_DCL void get_location(schar *, schar *, int, struct mkroom *);
 STATIC_DCL boolean is_ok_location(schar, schar, int);
 STATIC_DCL unpacked_coord get_unpacked_coord(long, int);
 STATIC_DCL void get_location_coord(schar *, schar *, int,
-                                   struct mkroom *, long);
+								   struct mkroom *, long);
 STATIC_DCL void get_room_loc(schar *, schar *, struct mkroom *);
 STATIC_DCL void get_free_room_loc(schar *, schar *,
-                                  struct mkroom *, packed_coord);
+								  struct mkroom *, packed_coord);
 STATIC_DCL boolean create_subroom(struct mkroom *, xchar, xchar,
-                                  xchar, xchar, xchar, xchar);
+								  xchar, xchar, xchar, xchar);
 STATIC_DCL void create_door(room_door *, struct mkroom *);
 STATIC_DCL void create_trap(spltrap *, struct mkroom *);
 STATIC_DCL int noncoalignment(aligntyp);
@@ -77,7 +77,7 @@ STATIC_DCL void create_object(object *, struct mkroom *);
 STATIC_DCL void create_altar(altar *, struct mkroom *);
 STATIC_DCL void replace_terrain(replaceterrain *, struct mkroom *);
 STATIC_DCL boolean search_door(struct mkroom *,
-                               xchar *, xchar *, xchar, int);
+							   xchar *, xchar *, xchar, int);
 STATIC_DCL void fix_stair_rooms(void);
 STATIC_DCL void create_corridor(corridor *);
 STATIC_DCL struct mkroom *build_room(room *, struct mkroom *);
@@ -118,25 +118,27 @@ STATIC_DCL struct opvar *selection_not(struct opvar *);
 STATIC_DCL struct opvar *selection_logical_oper(struct opvar *,
                                                 struct opvar *, char);
 STATIC_DCL struct opvar *selection_filter_mapchar(struct opvar *,
-                                                  struct opvar *);
+												  struct opvar *);
 STATIC_DCL void selection_filter_percent(struct opvar *, int);
 STATIC_DCL int selection_rndcoord(struct opvar *, schar *, schar *,
                                   boolean);
 STATIC_DCL void selection_do_grow(struct opvar *, int);
 STATIC_DCL int floodfillchk_match_under(int, int);
 STATIC_DCL int floodfillchk_match_accessible(int, int);
+STATIC_DCL boolean sel_flood_havepoint(int, int,
+                                       xchar *, xchar *, int);
 STATIC_DCL void selection_do_ellipse(struct opvar *, int, int,
                                      int, int, int);
 STATIC_DCL long line_dist_coord(long, long, long, long, long, long);
 STATIC_DCL void selection_do_gradient(struct opvar *, long, long, long,
-                                      long, long, long, long, long);
+									  long, long, long, long, long);
 STATIC_DCL void selection_do_line(schar, schar, schar, schar,
-                                  struct opvar *);
+								  struct opvar *);
 STATIC_DCL void selection_do_randline(schar, schar, schar,
-                                      schar, schar, schar,
-                                      struct opvar *);
+									  schar, schar, schar,
+									  struct opvar *);
 STATIC_DCL void selection_iterate(struct opvar *, select_iter_func,
-                                  genericptr_t);
+								  genericptr_t);
 STATIC_DCL void sel_set_ter(int, int, genericptr_t);
 STATIC_DCL void sel_set_feature(int, int, genericptr_t);
 STATIC_DCL void sel_set_door(int, int, genericptr_t);
@@ -227,7 +229,7 @@ splev_stack_init(struct splevstack *st)
         st->depth = 0;
         st->depth_alloc = SPLEV_STACK_RESERVE;
         st->stackdata =
-            (struct opvar **) alloc(st->depth_alloc * sizeof(struct opvar *));
+           (struct opvar **) alloc(st->depth_alloc * sizeof (struct opvar *));
     }
 }
 
@@ -277,7 +279,7 @@ splev_stack_push(struct splevstack *st, struct opvar *v)
 
     if (st->depth >= st->depth_alloc) {
         struct opvar **tmp = (struct opvar **) alloc(
-            (st->depth_alloc + SPLEV_STACK_RESERVE) * sizeof(struct opvar *));
+           (st->depth_alloc + SPLEV_STACK_RESERVE) * sizeof (struct opvar *));
 
         (void) memcpy(tmp, st->stackdata,
                       st->depth_alloc * sizeof(struct opvar *));
@@ -342,7 +344,7 @@ splev_stack_reverse(struct splevstack *st)
 struct opvar *
 opvar_new_str(char *s)
 {
-    struct opvar *tmpov = (struct opvar *) alloc(sizeof(struct opvar));
+    struct opvar *tmpov = (struct opvar *) alloc(sizeof (struct opvar));
 
     tmpov->spovartyp = SPOVAR_STRING;
     if (s) {
@@ -359,7 +361,7 @@ opvar_new_str(char *s)
 struct opvar *
 opvar_new_int(long i)
 {
-    struct opvar *tmpov = (struct opvar *) alloc(sizeof(struct opvar));
+    struct opvar *tmpov = (struct opvar *) alloc(sizeof (struct opvar));
 
     tmpov->spovartyp = SPOVAR_INT;
     tmpov->vardata.l = i;
@@ -369,7 +371,7 @@ opvar_new_int(long i)
 struct opvar *
 opvar_new_coord(int x, int y)
 {
-    struct opvar *tmpov = (struct opvar *) alloc(sizeof(struct opvar));
+    struct opvar *tmpov = (struct opvar *) alloc(sizeof (struct opvar));
 
     tmpov->spovartyp = SPOVAR_COORD;
     tmpov->vardata.l = SP_COORD_PACK(x, y);
@@ -380,7 +382,7 @@ opvar_new_coord(int x, int y)
 struct opvar *
 opvar_new_region(int x1, int y1, int x2, int y2)
 {
-    struct opvar *tmpov = (struct opvar *)alloc(sizeof (struct opvar));
+    struct opvar *tmpov = (struct opvar *) alloc(sizeof (struct opvar));
 
     tmpov->spovartyp = SPOVAR_REGION;
     tmpov->vardata.l = SP_REGION_PACK(x1,y1,x2,y2);
@@ -594,6 +596,7 @@ void
 lvlfill_solid(schar filling, schar lit)
 {
     int x, y;
+
     for (x = 2; x <= x_maze_max; x++)
         for (y = 0; y <= y_maze_max; y++) {
             SET_TYPLIT(x, y, filling, lit);
@@ -607,11 +610,21 @@ STATIC_OVL void
 set_wall_property(xchar x1, xchar y1, xchar x2, xchar y2, int prop)
 {
     register xchar x, y;
+    struct rm *lev;
 
-    for (y = max(y1, 0); y <= min(y2, ROWNO - 1); y++)
-        for (x = max(x1, 0); x <= min(x2, COLNO - 1); x++)
-            if (IS_STWALL(levl[x][y].typ) || IS_TREE(levl[x][y].typ))
-                levl[x][y].wall_info |= prop;
+    x1 = max(x1, 1);
+    x2 = min(x2, COLNO - 1);
+    y1 = max(y1, 0);
+    y2 = min(y2, ROWNO - 1);
+    for (y = y1; y <= y2; y++)
+        for (x = x1; x <= x2; x++) {
+            lev = &levl[x][y];
+            if (IS_STWALL(lev->typ) || IS_TREE(lev->typ)
+                /* 3.6.2: made iron bars eligible to be flagged nondiggable
+                   (checked by chewing(hack.c) and zap_over_floor(zap.c)) */
+                || lev->typ == IRONBARS)
+                lev->wall_info |= prop;
+        }
 }
 
 STATIC_OVL void
@@ -757,10 +770,9 @@ link_doors_rooms()
 void
 fill_rooms()
 {
-    int tmpi;
+    int tmpi, m;
 
     for (tmpi = 0; tmpi < nroom; tmpi++) {
-        int m;
         if (rooms[tmpi].needfill)
             fill_room(&rooms[tmpi], (rooms[tmpi].needfill == 2));
         for (m = 0; m < rooms[tmpi].nsubrooms; m++)
@@ -1680,7 +1692,7 @@ create_monster(monster *m, struct mkroom *croom)
                     struct permonst *olddata = mtmp->data;
 
                     mgender_from_permonst(mtmp, mdat);
-                    set_mon_data(mtmp, mdat, 0);
+                    set_mon_data(mtmp, mdat);
                     if (emits_light(olddata) != emits_light(mtmp->data)) {
                         /* used to give light, now doesn't, or vice versa,
                            or light's range has changed */
@@ -1861,7 +1873,7 @@ create_object(object *o, struct mkroom *croom)
         otmp->owt = weight(otmp);
     }
 
-    /* contents */
+    /* contents (of a container or monster's inventory) */
     if (o->containment & SP_OBJ_CONTENT) {
         if (!container_idx) {
             if (!invent_carrying_monster) {
@@ -1873,27 +1885,10 @@ create_object(object *o, struct mkroom *croom)
                    outside the des-file.  Maybe another data file that
                    determines what inventories monsters get by default?
                  */
+                ; /* ['otmp' remains on floor] */
             } else {
-                int ci;
-                struct obj *objcheck = otmp;
-                int inuse = -1;
-
-                for (ci = 0; ci < container_idx; ci++)
-                    if (container_obj[ci] == objcheck)
-                        inuse = ci;
                 remove_object(otmp);
-                if (mpickobj(invent_carrying_monster, otmp)) {
-                    if (inuse > -1) {
-                        impossible(
-                     "container given to monster was merged or deallocated.");
-                        for (ci = inuse; ci < container_idx - 1; ci++)
-                            container_obj[ci] = container_obj[ci + 1];
-                        container_obj[container_idx] = NULL;
-                        container_idx--;
-                    }
-                    /* we lost track of it. */
-                    return;
-                }
+                (void) mpickobj(invent_carrying_monster, otmp);
             }
         } else {
             struct obj *cobj = container_obj[container_idx - 1];
@@ -1968,17 +1963,23 @@ create_object(object *o, struct mkroom *croom)
            might be short-circuited if a monster brings object to hero) */
         if (Is_mineend_level(&u.uz)) {
             if (otmp->otyp == iflags.mines_prize_type) {
-                otmp->record_achieve_special = MINES_PRIZE;
-                if (++mines_prize_count > 1)
-                    impossible(prize_warning, "mines end");
+                if (!mines_prize_count++) {
+                    /* Note: the first luckstone on lev will become the prize
+                             even if its not the explicit one, but random */
+                    otmp->record_achieve_special = MINES_PRIZE;
+                    /* prevent stacking; cleared when achievement is recorded */
+                    otmp->nomerge = 1;
+                }
             }
         } else if (Is_sokoend_level(&u.uz)) {
             if (otmp->otyp == iflags.soko_prize_type1) {
                 otmp->record_achieve_special = SOKO_PRIZE1;
+                otmp->nomerge = 1; /* redundant; Sokoban prizes don't stack */
                 if (++soko_prize_count > 1)
                     impossible(prize_warning, "sokoban end");
             } else if (otmp->otyp == iflags.soko_prize_type2) {
                 otmp->record_achieve_special = SOKO_PRIZE2;
+                otmp->nomerge = 1; /* redundant; Sokoban prizes don't stack */
                 if (++soko_prize_count > 1)
                     impossible(prize_warning, "sokoban end");
             }
@@ -2374,6 +2375,9 @@ fill_room(struct mkroom *croom, boolean prefilled)
         case COURT:
         case ZOO:
         case BEEHIVE:
+        case ANTHOLE:
+        case COCKNEST:
+        case LEPREHALL:
         case MORGUE:
         case BARRACKS:
             fill_zoo(croom);
@@ -2467,18 +2471,22 @@ light_region(region *tmpregion)
     }
 }
 
-void
+STATIC_OVL void
 wallify_map(int x1, int y1, int x2, int y2)
 {
     int x, y, xx, yy, lo_xx, lo_yy, hi_xx, hi_yy;
 
+    y1 = max(y1, 0);
+    x1 = max(x1, 1);
+    y2 = min(y2, ROWNO - 1);
+    x2 = min(x2, COLNO - 1);
     for (y = y1; y <= y2; y++) {
         lo_yy = (y > 0) ? y - 1 : 0;
         hi_yy = (y < y2) ? y + 1 : y2;
         for (x = x1; x <= x2; x++) {
             if (levl[x][y].typ != STONE)
                 continue;
-            lo_xx = (x > 0) ? x - 1 : 0;
+            lo_xx = (x > 1) ? x - 1 : 1;
             hi_xx = (x < x2) ? x + 1 : x2;
             for (yy = lo_yy; yy <= hi_yy; yy++)
                 for (xx = lo_xx; xx <= hi_xx; xx++)
@@ -2568,8 +2576,7 @@ fill_empty_maze()
             maze1xy(&mm, DRY);
             trytrap = rndtrap();
             if (sobj_at(BOULDER, mm.x, mm.y))
-                while (trytrap == PIT || trytrap == SPIKED_PIT
-                       || trytrap == TRAPDOOR || trytrap == HOLE)
+                while (is_pit(trytrap) || is_hole(trytrap))
                     trytrap = rndtrap();
             (void) maketrap(mm.x, mm.y, trytrap);
         }
@@ -3689,7 +3696,7 @@ selection_rndcoord(struct opvar *ov, schar *x, schar *y, boolean removeit)
 void
 selection_do_grow(struct opvar *ov, int dir)
 {
-    int x, y, c;
+    int x, y;
     char tmp[COLNO][ROWNO];
 
     if (ov->spovartyp != SPOVAR_SEL)
@@ -3697,40 +3704,31 @@ selection_do_grow(struct opvar *ov, int dir)
     if (!ov)
         return;
 
-    (void) memset(tmp, 0, sizeof(tmp));
+    (void) memset(tmp, 0, sizeof tmp);
 
-    for (x = 0; x < COLNO; x++)
+    for (x = 1; x < COLNO; x++)
         for (y = 0; y < ROWNO; y++) {
-            c = 0;
-            if ((dir & W_WEST) && (x > 0)
-                && (selection_getpoint(x - 1, y, ov)))
-                c++;
-            if ((dir & (W_WEST | W_NORTH)) && (x > 0) && (y > 0)
-                && (selection_getpoint(x - 1, y - 1, ov)))
-                c++;
-            if ((dir & W_NORTH) && (y > 0)
-                && (selection_getpoint(x, y - 1, ov)))
-                c++;
-            if ((dir & (W_NORTH | W_EAST)) && (y > 0) && (x < COLNO - 1)
-                && (selection_getpoint(x + 1, y - 1, ov)))
-                c++;
-            if ((dir & W_EAST) && (x < COLNO - 1)
-                && (selection_getpoint(x + 1, y, ov)))
-                c++;
-            if ((dir & (W_EAST | W_SOUTH)) && (x < COLNO - 1)
-                && (y < ROWNO - 1) && (selection_getpoint(x + 1, y + 1, ov)))
-                c++;
-            if ((dir & W_SOUTH) && (y < ROWNO - 1)
-                && (selection_getpoint(x, y + 1, ov)))
-                c++;
-            if ((dir & (W_SOUTH | W_WEST)) && (y < ROWNO - 1) && (x > 0)
-                && (selection_getpoint(x - 1, y + 1, ov)))
-                c++;
-            if (c)
+            /* note:  dir is a mask of multiple directions, but the only
+               way to specify diagonals is by including the two adjacent
+               orthogonal directions, which effectively specifies three-
+               way growth [WEST|NORTH => WEST plus WEST|NORTH plus NORTH] */
+            if (((dir & W_WEST) && selection_getpoint(x + 1, y, ov))
+                || (((dir & (W_WEST | W_NORTH)) == (W_WEST | W_NORTH))
+                    && selection_getpoint(x + 1, y + 1, ov))
+                || ((dir & W_NORTH) && selection_getpoint(x, y + 1, ov))
+                || (((dir & (W_NORTH | W_EAST)) == (W_NORTH | W_EAST))
+                    && selection_getpoint(x - 1, y + 1, ov))
+                || ((dir & W_EAST) && selection_getpoint(x - 1, y, ov))
+                || (((dir & (W_EAST | W_SOUTH)) == (W_EAST | W_SOUTH))
+                    && selection_getpoint(x - 1, y - 1, ov))
+                || ((dir & W_SOUTH) && selection_getpoint(x, y - 1, ov))
+                ||  (((dir & (W_SOUTH | W_WEST)) == (W_SOUTH | W_WEST))
+                     && selection_getpoint(x + 1, y - 1, ov))) {
                 tmp[x][y] = 1;
+            }
         }
 
-    for (x = 0; x < COLNO; x++)
+    for (x = 1; x < COLNO; x++)
         for (y = 0; y < ROWNO; y++)
             if (tmp[x][y])
                 selection_setpoint(x, y, ov, 1);
@@ -3759,13 +3757,30 @@ floodfillchk_match_accessible(int x, int y)
             || levl[x][y].typ == SCORR);
 }
 
+/* check whethere <x,y> is already in xs[],ys[] */
+STATIC_OVL boolean
+sel_flood_havepoint(x, y, xs, ys, n)
+int x, y;
+xchar xs[], ys[];
+int n;
+{
+    xchar xx = (xchar) x, yy = (xchar) y;
+
+    while (n > 0) {
+        --n;
+        if (xs[n] == xx && ys[n] == yy)
+            return TRUE;
+    }
+    return FALSE;
+}
+
 void
 selection_floodfill(struct opvar *ov, int x, int y, boolean diagonals)
 {
     static const char nhFunc[] = "selection_floodfill";
     struct opvar *tmp = selection_opvar((char *) 0);
 #define SEL_FLOOD_STACK (COLNO * ROWNO)
-#define SEL_FLOOD(nx, ny)                     \
+#define SEL_FLOOD(nx, ny) \
     do {                                      \
         if (idx < SEL_FLOOD_STACK) {          \
             dx[idx] = (nx);                   \
@@ -3774,17 +3789,20 @@ selection_floodfill(struct opvar *ov, int x, int y, boolean diagonals)
         } else                                \
             panic(floodfill_stack_overrun);   \
     } while (0)
-#define SEL_FLOOD_CHKDIR(mx,my,sel)                  \
-    if (isok((mx), (my))                             \
-        && (*selection_flood_check_func)((mx), (my)) \
-        && !selection_getpoint((mx), (my), (sel)))   \
-        SEL_FLOOD((mx), (my))
+#define SEL_FLOOD_CHKDIR(mx, my, sel) \
+    do {                                                        \
+        if (isok((mx), (my))                                    \
+            && (*selection_flood_check_func)((mx), (my))        \
+            && !selection_getpoint((mx), (my), (sel))           \
+            && !sel_flood_havepoint((mx), (my), dx, dy, idx))   \
+            SEL_FLOOD((mx), (my));                              \
+    } while (0)
     static const char floodfill_stack_overrun[] = "floodfill stack overrun";
     int idx = 0;
     xchar dx[SEL_FLOOD_STACK];
     xchar dy[SEL_FLOOD_STACK];
 
-    if (selection_flood_check_func == NULL) {
+    if (selection_flood_check_func == (int (*)(int, int)) 0) {
         opvar_free(tmp);
         return;
     }
@@ -4307,7 +4325,7 @@ ensure_way_out()
 
     while (ttmp) {
         if ((ttmp->ttyp == MAGIC_PORTAL || ttmp->ttyp == VIBRATING_SQUARE
-             || ttmp->ttyp == HOLE || ttmp->ttyp == TRAPDOOR)
+             || is_hole(ttmp->ttyp))
             && !selection_getpoint(ttmp->tx, ttmp->ty, ov))
             selection_floodfill(ov, ttmp->tx, ttmp->ty, TRUE);
         ttmp = ttmp->ntrap;
@@ -4515,13 +4533,16 @@ spo_drawbridge(struct sp_coder *coder)
 {
     static const char nhFunc[] = "spo_drawbridge";
     xchar x, y;
+    int dopen;
     struct opvar *dir, *db_open, *dcoord;
 
     if (!OV_pop_i(dir) || !OV_pop_i(db_open) || !OV_pop_c(dcoord))
         return;
 
     get_location_coord(&x, &y, DRY | WET | HOT, coder->croom, OV_i(dcoord));
-    if (!create_drawbridge(x, y, OV_i(dir), OV_i(db_open)))
+    if ((dopen = OV_i(db_open)) == -1)
+        dopen = !rn2(2);
+    if (!create_drawbridge(x, y, OV_i(dir), dopen ? TRUE : FALSE))
         impossible("Cannot create drawbridge.");
     SpLev_Map[x][y] = 1;
 

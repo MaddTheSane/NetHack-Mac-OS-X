@@ -1,4 +1,4 @@
-/* NetHack 3.6	wintty.h	$NHDT-Date: 1433806583 2015/06/08 23:36:23 $  $NHDT-Branch: master $:$NHDT-Revision: 1.24 $ */
+/* NetHack 3.6	wintty.h	$NHDT-Date: 1558330405 2019/05/20 05:33:25 $  $NHDT-Branch: NetHack-3.6 $:$NHDT-Revision: 1.34 $ */
 /* Copyright (c) David Cohrs, 1991,1992				  */
 /* NetHack may be freely redistributed.  See license for details. */
 
@@ -69,6 +69,20 @@ struct DisplayDesc {
 
 #endif /* WINDOW_STRUCTS */
 
+#ifdef STATUS_HILITES
+struct tty_status_fields {
+    int idx;
+    int color;
+    int attr;
+    int x, y;
+    size_t lth;
+    boolean valid;
+    boolean dirty;
+    boolean redraw;
+    boolean sanitycheck; /* was 'last_in_row' */
+};
+#endif
+
 #define MAXWIN 20 /* maximum number of windows, cop-out */
 
 /* tty dependent window types */
@@ -100,16 +114,7 @@ E void tty_startup(int *, int *);
 #ifndef NO_TERMS
 E void tty_shutdown(void);
 #endif
-#if defined(apollo)
-/* Apollos don't widen old-style function definitions properly -- they try to
- * be smart and use the prototype, or some such strangeness.  So we have to
- * define UNWIDENDED_PROTOTYPES (in tradstdc.h), which makes char below a
- * char.  But the tputs termcap call was compiled as if xputc's argument
- * actually would be expanded.	So here, we have to make an exception. */
-E void xputc(int);
-#else
-E void xputc(char);
-#endif
+E int xputc(int);
 E void xputs(const char *);
 #if defined(SCREEN_VGA) || defined(SCREEN_8514)
 E void xputg(int, int, unsigned);
@@ -137,6 +142,7 @@ E void cl_eos(void);
  * a color or whatever.  wintty.c should concern itself with WHERE to put
  * stuff in a window.
  */
+E int term_attr_fixup(int);
 E void term_start_attr(int attr);
 E void term_end_attr(int attr);
 E void term_start_raw_bold(void);
@@ -150,6 +156,8 @@ E int has_color(int color);
 
 /* ### topl.c ### */
 
+E void show_topl(const char *);
+E void remember_topl(void);
 E void addtopl(const char *);
 E void more(void);
 E void update_topl(const char *);
@@ -166,6 +174,7 @@ E void win_tty_init(int);
 
 /* external declarations */
 E void tty_init_nhwindows(int *, char **);
+E void tty_preference_update(const char *);
 E void tty_player_selection(void);
 E void tty_askname(void);
 E void tty_get_nh_event(void);
@@ -215,6 +224,7 @@ E short set_tty_font_name(winid, char *);
 #endif
 E char *tty_get_color_string(void);
 #endif
+E void tty_status_enablefield(int, const char *, const char *, boolean);
 E void tty_status_init(void);
 E void tty_status_update(int, genericptr_t, int, int, int, unsigned long *);
 

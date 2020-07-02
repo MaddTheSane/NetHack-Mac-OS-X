@@ -1,4 +1,4 @@
-/* NetHack 3.6	mthrowu.c	$NHDT-Date: 1514152830 2017/12/24 22:00:30 $  $NHDT-Branch: NetHack-3.6.0 $:$NHDT-Revision: 1.73 $ */
+/* NetHack 3.6	mthrowu.c	$NHDT-Date: 1573688695 2019/11/13 23:44:55 $  $NHDT-Branch: NetHack-3.6 $:$NHDT-Revision: 1.86 $ */
 /* Copyright (c) Stichting Mathematisch Centrum, Amsterdam, 1985. */
 /*-Copyright (c) Pasi Kallinen, 2016. */
 /* NetHack may be freely redistributed.  See license for details. */
@@ -121,7 +121,7 @@ drop_throw(register struct obj *obj, boolean ohit, int x, int y)
 
     if (create && !((mtmp = m_at(x, y)) != 0 && mtmp->mtrapped
                     && (t = t_at(x, y)) != 0
-                    && (t->ttyp == PIT || t->ttyp == SPIKED_PIT))) {
+                    && is_pit(t->ttyp))) {
         int objgone = 0;
 
         if (down_gate(x, y) != -1)
@@ -178,7 +178,10 @@ struct obj *otmp, *mwep;
         /* Elven Craftsmanship makes for light, quick bows */
         if (otmp->otyp == ELVEN_ARROW && !otmp->cursed)
             multishot++;
-        if (ammo_and_launcher(otmp, uwep) && mwep->otyp == ELVEN_BOW
+        /* for arrow, we checked bow&arrow when entering block, but for
+           bow, so far we've only validated that otmp is a weapon stack;
+           need to verify that it's a stack of arrows rather than darts */
+        if (mwep && mwep->otyp == ELVEN_BOW && ammo_and_launcher(otmp, mwep)
             && !mwep->cursed)
             multishot++;
         /* 1/3 of launcher enchantment */
@@ -280,7 +283,7 @@ struct obj *otmp, *mwep;
            if mtmp gets killed (shot kills adjacent gas spore and
            triggers explosion, perhaps), inventory will be dropped
            and otmp might go away via merging into another stack */
-        if (mtmp->mhp <= 0 && m_shot.i < m_shot.n)
+        if (DEADMONSTER(mtmp) && m_shot.i < m_shot.n)
             /* cancel pending shots (perhaps ought to give a message here
                since we gave one above about throwing/shooting N missiles) */
             break; /* endmultishot(FALSE); */
@@ -307,7 +310,7 @@ ohitmon(struct monst *mtmp, /* accidental target, located at <bhitpos.x,.y> */
     struct obj *mon_launcher = archer ? MON_WEP(archer) : NULL;
 
     notonhead = (bhitpos.x != mtmp->mx || bhitpos.y != mtmp->my);
-    ismimic = mtmp->m_ap_type && mtmp->m_ap_type != M_AP_MONSTER;
+    ismimic = M_AP_TYPE(mtmp) && M_AP_TYPE(mtmp) != M_AP_MONSTER;
     vis = cansee(bhitpos.x, bhitpos.y);
 
     tmp = 5 + find_mac(mtmp) + omon_adj(mtmp, otmp, FALSE);
@@ -345,17 +348,21 @@ ohitmon(struct monst *mtmp, /* accidental target, located at <bhitpos.x,.y> */
         damage = dmgval(otmp, mtmp);
         if (otmp->otyp == ACID_VENOM && resists_acid(mtmp))
             damage = 0;
+#if 0 /* can't use this because we don't have the attacker */
+        if (is_orc(mtmp->data) && is_elf(?magr?))
+            damage++;
+#endif
         if (ismimic)
             seemimic(mtmp);
         mtmp->msleeping = 0;
         if (vis) {
             if (otmp->otyp == EGG)
-                pline("Splat! %s is hit with %s egg!", Monnam(mtmp),
+                pline("Splat!  %s is hit with %s egg!", Monnam(mtmp),
                       otmp->known ? an(mons[otmp->corpsenm].mname) : "an");
             else
                 hit(distant_name(otmp, mshot_xname), mtmp, exclam(damage));
         } else if (verbose && !target)
-            pline("%s%s is hit%s", (otmp->otyp == EGG) ? "Splat! " : "",
+            pline("%s%s is hit%s", (otmp->otyp == EGG) ? "Splat!  " : "",
                   Monnam(mtmp), exclam(damage));
 
         if (otmp->opoisoned && is_poisonable(otmp)) {
@@ -375,10 +382,19 @@ ohitmon(struct monst *mtmp, /* accidental target, located at <bhitpos.x,.y> */
         }
         if (objects[otmp->otyp].oc_material == SILVER
             && mon_hates_silver(mtmp)) {
-            if (vis)
-                pline_The("silver sears %s flesh!", s_suffix(mon_nam(mtmp)));
-            else if (verbose && !target)
-                pline("Its flesh is seared!");
+            boolean flesh = (!noncorporeal(mtmp->data)
+                             && !amorphous(mtmp->data));
+
+            /* note: extra silver damage is handled by dmgval() */
+            if (vis) {
+                char *m_name = mon_nam(mtmp);
+
+                if (flesh) /* s_suffix returns a modifiable buffer */
+                    m_name = strcat(s_suffix(m_name), " flesh");
+                pline_The("silver sears %s!", m_name);
+            } else if (verbose && !target) {
+                pline("%s is seared!", flesh ? "Its flesh" : "It");
+            }
         }
         if (otmp->otyp == ACID_VENOM && cansee(mtmp->mx, mtmp->my)) {
             if (resists_acid(mtmp)) {
@@ -398,9 +414,9 @@ ohitmon(struct monst *mtmp, /* accidental target, located at <bhitpos.x,.y> */
                 damage = 0;
         }
 
-        if (mtmp->mhp > 0) { /* might already be dead (if petrified) */
+        if (!DEADMONSTER(mtmp)) { /* might already be dead (if petrified) */
             mtmp->mhp -= damage;
-            if (mtmp->mhp < 1) {
+            if (DEADMONSTER(mtmp)) {
                 if (vis || (verbose && !target))
                     pline("%s is %s!", Monnam(mtmp),
                           (nonliving(mtmp->data) || is_vampshifter(mtmp)
@@ -416,7 +432,7 @@ ohitmon(struct monst *mtmp, /* accidental target, located at <bhitpos.x,.y> */
 
         /* blinding venom and cream pie do 0 damage, but verify
            that the target is still alive anyway */
-        if (mtmp->mhp > 0
+        if (!DEADMONSTER(mtmp)
             && can_blnd((struct monst *) 0, mtmp,
                         (uchar) ((otmp->otyp == BLINDING_VENOM) ? AT_SPIT
                                                                 : AT_WEAP),
@@ -527,11 +543,16 @@ m_throw(struct monst *mon,  /* launching monster */
      * be careful not to use either one after it's been freed.
      */
     if (sym)
-        tmp_at(DISP_FLASH, obj_to_glyph(singleobj));
+        tmp_at(DISP_FLASH, obj_to_glyph(singleobj, rn2_on_display_rng));
     while (range-- > 0) { /* Actually the loop is always exited by break */
         bhitpos.x += dx;
         bhitpos.y += dy;
-        if ((mtmp = m_at(bhitpos.x, bhitpos.y)) != 0) {
+        mtmp = m_at(bhitpos.x, bhitpos.y);
+        if (mtmp && shade_miss(mon, mtmp, singleobj, TRUE, TRUE)) {
+            /* if mtmp is a shade and missile passes harmlessly through it,
+               give message and skip it in order to keep going */
+            mtmp = (struct monst *) 0;
+        } else if (mtmp) {
             if (ohitmon(mtmp, singleobj, range, TRUE))
                 break;
         } else if (bhitpos.x == u.ux && bhitpos.y == u.uy) {
@@ -743,7 +764,7 @@ spitmm(struct monst *mtmp, struct attack *mattk, struct monst *mtarg)
             break;
         default:
             impossible("bad attack type in spitmu");
-            /* fall through */
+            /*FALLTHRU*/
         case AD_ACID:
             otmp = mksobj(ACID_VENOM, TRUE, FALSE);
             break;
@@ -796,7 +817,7 @@ struct attack  *mattk;
             if ((typ >= AD_MAGM) && (typ <= AD_ACID)) {
                 if (canseemon(mtmp))
                     pline("%s breathes %s!", Monnam(mtmp), breathwep[typ - 1]);
-                dobuzz((int) (-20 - (typ - 1)), (int)mattk->damn,
+                dobuzz((int) (-20 - (typ - 1)), (int) mattk->damn,
                        mtmp->mx, mtmp->my, sgn(tbx), sgn(tby), FALSE);
                 nomul(0);
                 /* breath runs out sometimes. Also, give monster some
@@ -1053,8 +1074,8 @@ lined_up(register struct monst *mtmp)
 
     /* hero concealment usually trumps monst awareness of being lined up */
     if (Upolyd && rn2(25)
-        && (u.uundetected || (youmonst.m_ap_type != M_AP_NOTHING
-                              && youmonst.m_ap_type != M_AP_MONSTER)))
+        && (u.uundetected || (U_AP_TYPE != M_AP_NOTHING
+                              && U_AP_TYPE != M_AP_MONSTER)))
         return FALSE;
 
     ignore_boulders = (throws_rocks(mtmp->data)

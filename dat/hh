@@ -25,8 +25,10 @@ General commands:
 ?       help    display one of several informative texts
 #quit   quit    end the game without saving current game
 S       save    save the game (to be continued later) and exit
-!       sh      escape to some SHELL (if allowed)
+                [to restore, play again and use the same character name]
+!       sh      escape to some SHELL (if allowed; 'exit' to resume play)
 ^Z      suspend suspend the game (independent of your current suspend char)
+                [on UNIX(tm)-based systems, use the 'fg' command to resume]
 O       options set options
 /       what-is tell what a map symbol represents
 \       known   display list of what's been discovered
@@ -96,7 +98,7 @@ M-2     twoweapon toggle two-weapon combat (unless number_pad is enabled)
 M-a     adjust  adjust inventory letters
 M-A     annotate add a one-line note to the current dungeon level (see M-O)
 M-c     chat    talk to someone
-M-C     conduct view optional challanges
+M-C     conduct view optional challenges
 M-d     dip     dip an object into something
 M-e     enhance advance or check weapon and spell skills
 M-f     force   force a lock

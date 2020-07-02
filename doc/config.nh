@@ -347,7 +347,8 @@
 # How the map window is shown?  Windows GUI only.
 # possible map_mode options include: tiles, ascii4x6,
 # ascii6x8, ascii8x8, ascii16x8, ascii7x12, ascii8x12, ascii16x12,
-# ascii12x16, ascii10x18, fit_to_screen
+# ascii12x16, ascii10x18, fit_to_screen, ascii_fit_to_screen,
+# tiles_fit_to_screen
 #OPTIONS=map_mode:tiles
 
 # Define alternative file for the files, and the tile size
@@ -398,21 +399,21 @@
 #HACKDIR=c:\games\nethack
 
 # The location that level files in progress are stored
-# (default=HACKDIR, writeable)
+# (default=HACKDIR, writable)
 #LEVELDIR=c:\nethack\levels
 
-# The location where saved games are kept (default=HACKDIR, writeable)
+# The location where saved games are kept (default=HACKDIR, writable)
 #SAVEDIR=c:\nethack\save
 
-# The location that bones files are kept (default=HACKDIR, writeable)
+# The location that bones files are kept (default=HACKDIR, writable)
 #BONESDIR=c:\nethack\save
 
 # The location that file synchronization locks are stored
-# (default=HACKDIR, writeable)
+# (default=HACKDIR, writable)
 #LOCKDIR=c:\nethack\levels
 
 # The location that a record of game aborts and self-diagnosed game problems
-# is kept (default=HACKDIR, writeable)
+# is kept (default=HACKDIR, writable)
 #TROUBLEDIR=c:\nethack\trouble
 
 # Finnish keyboards might need these modifications uncommented. Windows GUI.

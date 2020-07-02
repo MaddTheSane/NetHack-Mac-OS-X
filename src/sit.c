@@ -1,4 +1,4 @@
-/* NetHack 3.6	sit.c	$NHDT-Date: 1458341129 2016/03/18 22:45:29 $  $NHDT-Branch: NetHack-3.6.0 $:$NHDT-Revision: 1.53 $ */
+/* NetHack 3.6	sit.c	$NHDT-Date: 1559670609 2019/06/04 17:50:09 $  $NHDT-Branch: NetHack-3.6 $:$NHDT-Revision: 1.61 $ */
 /* Copyright (c) Stichting Mathematisch Centrum, Amsterdam, 1985. */
 /*-Copyright (c) Robert Patrick Rankin, 2012. */
 /* NetHack may be freely redistributed.  See license for details. */
@@ -67,7 +67,7 @@ dosit()
 
     if (OBJ_AT(u.ux, u.uy)
         /* ensure we're not standing on the precipice */
-        && !uteetering_at_seen_pit(trap)) {
+        && !(uteetering_at_seen_pit(trap) || uescaped_shaft(trap))) {
         register struct obj *obj;
 
         obj = level.objects[u.ux][u.uy];
@@ -116,12 +116,13 @@ dosit()
             You("sit down.");
             dotrap(trap, VIASITTING);
         }
-    } else if (Underwater || Is_waterlevel(&u.uz)) {
+    } else if ((Underwater || Is_waterlevel(&u.uz))
+                && !eggs_in_water(youmonst.data)) {
         if (Is_waterlevel(&u.uz))
             There("are no cushions floating nearby.");
         else
             You("sit down on the muddy bottom.");
-    } else if (is_pool(u.ux, u.uy)) {
+    } else if (is_pool(u.ux, u.uy) && !eggs_in_water(youmonst.data)) {
     in_water:
         You("sit in the %s.", hliquid("water"));
         if (!rn2(10) && uarm)
@@ -188,7 +189,7 @@ dosit()
                 u.ucreamed = 0;
                 make_blinded(0L, TRUE);
                 make_sick(0L, (char *) 0, FALSE, SICK_ALL);
-                heal_legs();
+                heal_legs(0);
                 context.botl = 1;
                 break;
             case 5:
@@ -281,7 +282,7 @@ dosit()
 
         if (!rn2(3) && IS_THRONE(levl[u.ux][u.uy].typ)) {
             /* may have teleported */
-            levl[u.ux][u.uy].typ = ROOM;
+            levl[u.ux][u.uy].typ = ROOM, levl[u.ux][u.uy].flags = 0;
             pline_The("throne vanishes in a puff of logic.");
             newsym(u.ux, u.uy);
         }
@@ -297,8 +298,18 @@ dosit()
         } else if (u.uhunger < (int) objects[EGG].oc_nutrition) {
             You("don't have enough energy to lay an egg.");
             return 0;
+        } else if (eggs_in_water(youmonst.data)) {
+            if (!(Underwater || Is_waterlevel(&u.uz))) {
+                pline("A splash tetra you are not.");
+                return 0;
+            }
+            if (Upolyd &&
+                (youmonst.data == &mons[PM_GIANT_EEL]
+                 || youmonst.data == &mons[PM_ELECTRIC_EEL])) {
+                You("yearn for the Sargasso Sea.");
+                return 0;
+            }
         }
-
         uegg = mksobj(EGG, FALSE, FALSE);
         uegg->spe = 1;
         uegg->quan = 1L;
@@ -306,7 +317,7 @@ dosit()
         /* this sets hatch timers if appropriate */
         set_corpsenm(uegg, egg_type_from_parent(u.umonnum, FALSE));
         uegg->known = uegg->dknown = 1;
-        You("lay an egg.");
+        You("%s an egg.", eggs_in_water(youmonst.data) ? "spawn" : "lay");
         dropy(uegg);
         stackobj(uegg);
         morehungry((int) objects[EGG].oc_nutrition);
@@ -381,7 +392,7 @@ rndcurse()
         if (!Blind) {
             pline("%s %s.", Yobjnam2(otmp, "glow"),
                   hcolor(otmp->cursed ? NH_BLACK : (const char *) "brown"));
-            otmp->bknown = TRUE;
+            otmp->bknown = 1; /* ok to bypass set_bknown() here */
         }
     }
 }

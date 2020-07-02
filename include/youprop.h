@@ -1,4 +1,4 @@
-/* NetHack 3.6	youprop.h	$NHDT-Date: 1433291407 2015/06/03 00:30:07 $  $NHDT-Branch: master $:$NHDT-Revision: 1.23 $ */
+/* NetHack 3.6	youprop.h	$NHDT-Date: 1568831820 2019/09/18 18:37:00 $  $NHDT-Branch: NetHack-3.6 $:$NHDT-Revision: 1.27 $ */
 /* Copyright (c) 1989 Mike Threepoint				  */
 /* NetHack may be freely redistributed.  See license for details. */
 
@@ -75,8 +75,8 @@
 /* Pseudo-property */
 #define Punished (uball != 0)
 
-/* Those implemented solely as timeouts (we use just intrinsic) */
-#define HStun u.uprops[STUNNED].intrinsic
+/* Many are implemented solely as timeouts (we use just intrinsic) */
+#define HStun u.uprops[STUNNED].intrinsic /* timed or FROMFORM */
 #define Stunned HStun
 
 #define HConfusion u.uprops[CONFUSION].intrinsic
@@ -209,8 +209,12 @@
 #define ETeleport_control u.uprops[TELEPORT_CONTROL].extrinsic
 #define Teleport_control (HTeleport_control || ETeleport_control)
 
+/* HLevitation has I_SPECIAL set if levitating due to blessed potion
+   which allows player to use the '>' command to end levitation early */
 #define HLevitation u.uprops[LEVITATION].intrinsic
 #define ELevitation u.uprops[LEVITATION].extrinsic
+/* BLevitation has I_SPECIAL set if trapped in the floor,
+   FROMOUTSIDE set if inside solid rock (or in water on Plane of Water) */
 #define BLevitation u.uprops[LEVITATION].blocked
 #define Levitation ((HLevitation || ELevitation) && !BLevitation)
 /* Can't touch surface, can't go under water; overrides all others */
@@ -219,8 +223,11 @@
      && (HLevitation & ~(I_SPECIAL | TIMEOUT)) == 0L                   \
      && (ELevitation & ~W_ARTI) == 0L)
 
+/* Flying is overridden by Levitation */
 #define HFlying u.uprops[FLYING].intrinsic
 #define EFlying u.uprops[FLYING].extrinsic
+/* BFlying has I_SPECIAL set if levitating or trapped in the floor or both,
+   FROMOUTSIDE set if inside solid rock (or in water on Plane of Water) */
 #define BFlying u.uprops[FLYING].blocked
 #define Flying                                                      \
     ((HFlying || EFlying || (u.usteed && is_flyer(u.usteed->data))) \

@@ -7,5 +7,11 @@ Sysunix
 nethack
 *.o
 tiles.bmp
+*.moc
+graphicschk
+nhdat
+o
+nhdat*
+
 *.swiftmodule
 NetHackCocoa-Swift.h

@@ -1,4 +1,4 @@
-/* NetHack 3.6	mondata.h	$NHDT-Date: 1513297342 2017/12/15 00:22:22 $  $NHDT-Branch: NetHack-3.6.0 $:$NHDT-Revision: 1.33 $ */
+/* NetHack 3.6	mondata.h	$NHDT-Date: 1576626512 2019/12/17 23:48:32 $  $NHDT-Branch: NetHack-3.6 $:$NHDT-Revision: 1.39 $ */
 /* Copyright (c) 1989 Mike Threepoint				  */
 /* NetHack may be freely redistributed.  See license for details. */
 
@@ -10,19 +10,28 @@
 
 #define pm_resistance(ptr, typ) (((ptr)->mresists & (typ)) != 0)
 
-#define resists_fire(mon) (((mon)->mintrinsics & MR_FIRE) != 0)
-#define resists_cold(mon) (((mon)->mintrinsics & MR_COLD) != 0)
-#define resists_sleep(mon) (((mon)->mintrinsics & MR_SLEEP) != 0)
-#define resists_disint(mon) (((mon)->mintrinsics & MR_DISINT) != 0)
-#define resists_elec(mon) (((mon)->mintrinsics & MR_ELEC) != 0)
-#define resists_poison(mon) (((mon)->mintrinsics & MR_POISON) != 0)
-#define resists_acid(mon) (((mon)->mintrinsics & MR_ACID) != 0)
-#define resists_ston(mon) (((mon)->mintrinsics & MR_STONE) != 0)
+#define resists_fire(mon) \
+    ((((mon)->data->mresists | (mon)->mextrinsics) & MR_FIRE) != 0)
+#define resists_cold(mon) \
+    ((((mon)->data->mresists | (mon)->mextrinsics) & MR_COLD) != 0)
+#define resists_sleep(mon) \
+    ((((mon)->data->mresists | (mon)->mextrinsics) & MR_SLEEP) != 0)
+#define resists_disint(mon) \
+    ((((mon)->data->mresists | (mon)->mextrinsics) & MR_DISINT) != 0)
+#define resists_elec(mon) \
+    ((((mon)->data->mresists | (mon)->mextrinsics) & MR_ELEC) != 0)
+#define resists_poison(mon) \
+    ((((mon)->data->mresists | (mon)->mextrinsics) & MR_POISON) != 0)
+#define resists_acid(mon) \
+    ((((mon)->data->mresists | (mon)->mextrinsics) & MR_ACID) != 0)
+#define resists_ston(mon) \
+    ((((mon)->data->mresists | (mon)->mextrinsics) & MR_STONE) != 0)
 
 #define is_lminion(mon) \
     (is_minion((mon)->data) && mon_aligntyp(mon) == A_LAWFUL)
 #define is_flyer(ptr) (((ptr)->mflags1 & M1_FLY) != 0L)
 #define is_floater(ptr) ((ptr)->mlet == S_EYE || (ptr)->mlet == S_LIGHT)
+/* clinger: piercers, mimics, wumpus -- generally don't fall down holes */
 #define is_clinger(ptr) (((ptr)->mflags1 & M1_CLING) != 0L)
 #define is_swimmer(ptr) (((ptr)->mflags1 & M1_SWIM) != 0L)
 #define breathless(ptr) (((ptr)->mflags1 & M1_BREATHLESS) != 0L)
@@ -33,14 +42,24 @@
 #define noncorporeal(ptr) ((ptr)->mlet == S_GHOST)
 #define tunnels(ptr) (((ptr)->mflags1 & M1_TUNNEL) != 0L)
 #define needspick(ptr) (((ptr)->mflags1 & M1_NEEDPICK) != 0L)
+/* hides_under() requires an object at the location in order to hide */
 #define hides_under(ptr) (((ptr)->mflags1 & M1_CONCEAL) != 0L)
+/* is_hider() is True for mimics but when hiding they appear as something
+   else rather than become mon->mundetected, so use is_hider() with care */
 #define is_hider(ptr) (((ptr)->mflags1 & M1_HIDE) != 0L)
+/* piercers cling to the ceiling; lurkers above are hiders but they fly
+   so aren't classified as clingers; unfortunately mimics are classified
+   as both hiders and clingers but have nothing to do with ceilings;
+   wumpuses (not wumpi :-) cling but aren't hiders */
+#define ceiling_hider(ptr) \
+    (is_hider(ptr) && ((is_clinger(ptr) && (ptr)->mlet != S_MIMIC) \
+                       || is_flyer(ptr))) /* lurker above */
 #define haseyes(ptr) (((ptr)->mflags1 & M1_NOEYES) == 0L)
-#define eyecount(ptr)                                         \
-    (!haseyes(ptr) ? 0 : ((ptr) == &mons[PM_CYCLOPS]          \
-                          || (ptr) == &mons[PM_FLOATING_EYE]) \
-                             ? 1                              \
-                             : 2)
+/* used to decide whether plural applies so no need for 'more than 2' */
+#define eyecount(ptr) \
+    (!haseyes(ptr) ? 0                                                     \
+     : ((ptr) == &mons[PM_CYCLOPS] || (ptr) == &mons[PM_FLOATING_EYE]) ? 1 \
+       : 2)
 #define nohands(ptr) (((ptr)->mflags1 & M1_NOHANDS) != 0L)
 #define nolimbs(ptr) (((ptr)->mflags1 & M1_NOLIMBS) == M1_NOLIMBS)
 #define notake(ptr) (((ptr)->mflags1 & M1_NOTAKE) != 0L)
@@ -59,9 +78,12 @@
 #define slithy(ptr) (((ptr)->mflags1 & M1_SLITHY) != 0L)
 #define is_wooden(ptr) ((ptr) == &mons[PM_WOOD_GOLEM])
 #define thick_skinned(ptr) (((ptr)->mflags1 & M1_THICK_HIDE) != 0L)
+#define hug_throttles(ptr) ((ptr) == &mons[PM_ROPE_GOLEM])
 #define slimeproof(ptr) \
     ((ptr) == &mons[PM_GREEN_SLIME] || flaming(ptr) || noncorporeal(ptr))
 #define lays_eggs(ptr) (((ptr)->mflags1 & M1_OVIPAROUS) != 0L)
+#define eggs_in_water(ptr) \
+    (lays_eggs(ptr) && (ptr)->mlet == S_EEL && is_swimmer(ptr))
 #define regenerates(ptr) (((ptr)->mflags1 & M1_REGEN) != 0L)
 #define perceives(ptr) (((ptr)->mflags1 & M1_SEE_INVIS) != 0L)
 #define can_teleport(ptr) (((ptr)->mflags1 & M1_TPORT) != 0L)
@@ -127,9 +149,9 @@
 #define is_longworm(ptr)                                                   \
     (((ptr) == &mons[PM_BABY_LONG_WORM]) || ((ptr) == &mons[PM_LONG_WORM]) \
      || ((ptr) == &mons[PM_LONG_WORM_TAIL]))
-#define is_covetous(ptr) ((ptr->mflags3 & M3_COVETOUS))
-#define infravision(ptr) ((ptr->mflags3 & M3_INFRAVISION))
-#define infravisible(ptr) ((ptr->mflags3 & M3_INFRAVISIBLE))
+#define is_covetous(ptr) (((ptr)->mflags3 & M3_COVETOUS))
+#define infravision(ptr) (((ptr)->mflags3 & M3_INFRAVISION))
+#define infravisible(ptr) (((ptr)->mflags3 & M3_INFRAVISIBLE))
 #define is_displacer(ptr) (((ptr)->mflags3 & M3_DISPLACES) != 0L)
 #define is_mplayer(ptr) \
     (((ptr) >= &mons[PM_ARCHEOLOGIST]) && ((ptr) <= &mons[PM_WIZARD]))
@@ -174,6 +196,8 @@
     ((ptr) == &mons[PM_MIND_FLAYER] || (ptr) == &mons[PM_MASTER_MIND_FLAYER])
 
 #define is_vampire(ptr) ((ptr)->mlet == S_VAMPIRE)
+
+#define hates_light(ptr) ((ptr) == &mons[PM_GREMLIN])
 
 /* used to vary a few messages */
 #define weirdnonliving(ptr) (is_golem(ptr) || (ptr)->mlet == S_VORTEX)

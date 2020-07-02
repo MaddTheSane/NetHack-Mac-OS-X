@@ -1,12 +1,15 @@
 dgn_lex.c
+dgn_flex.c
 dgn_yacc.c
 lev_lex.c
+lev_flex.c
 lev_yacc.c
 tiletxt.c
 makedefs
 dgn_comp
 lev_comp
 dlb
+dlb_main
 recover
 tilemap
 tileedit

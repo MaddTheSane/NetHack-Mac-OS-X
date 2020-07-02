@@ -1,4 +1,4 @@
-/* NetHack 3.6	termcap.c	$NHDT-Date: 1456907853 2016/03/02 08:37:33 $  $NHDT-Branch: NetHack-3.6.0 $:$NHDT-Revision: 1.24 $ */
+/* NetHack 3.6	termcap.c	$NHDT-Date: 1562056615 2019/07/02 08:36:55 $  $NHDT-Branch: NetHack-3.6 $:$NHDT-Revision: 1.31 $ */
 /* Copyright (c) Stichting Mathematisch Centrum, Amsterdam, 1985. */
 /*-Copyright (c) Pasi Kallinen, 2018. */
 /* NetHack may be freely redistributed.  See license for details. */
@@ -36,18 +36,10 @@ struct tc_lcl_data tc_lcl_data = { 0, 0, 0, 0, 0, 0, 0, FALSE };
 
 STATIC_VAR char *HO, *CL, *CE, *UP, *XD, *BC, *SO, *SE, *TI, *TE;
 STATIC_VAR char *VS, *VE;
-STATIC_VAR char *ME;
-STATIC_VAR char *MR;
-#if 0
-STATIC_VAR char *MB, *MH;
-STATIC_VAR char *MD;     /* may already be in use below */
-#endif
+STATIC_VAR char *ME, *MR, *MB, *MH, *MD;
 
 #ifdef TERMLIB
 boolean dynamic_HIHE = FALSE;
-#ifdef TEXTCOLOR
-STATIC_VAR char *MD;
-#endif
 STATIC_VAR int SG;
 STATIC_OVL char PC = '\0';
 STATIC_VAR char tbuf[512];
@@ -176,7 +168,7 @@ tty_startup(int *wid, int *hgt)
                         Sprintf(hilites[i], "\033[0;3%dm", i);
                     }
             }
-#endif
+#endif /* TEXTCOLOR */
         *wid = CO;
         *hgt = LI;
         CL = "\033[2J"; /* last thing set */
@@ -283,14 +275,12 @@ tty_startup(int *wid, int *hgt)
     KS = Tgetstr("ks"); /* keypad start (special mode) */
     KE = Tgetstr("ke"); /* keypad end (ordinary mode [ie, digits]) */
     MR = Tgetstr("mr"); /* reverse */
-#if 0
     MB = Tgetstr("mb"); /* blink */
     MD = Tgetstr("md"); /* boldface */
     MH = Tgetstr("mh"); /* dim */
-#endif
     ME = Tgetstr("me"); /* turn off all attributes */
-    if (!ME || (SE == nullstr))
-        ME = SE; /* default to SE value */
+    if (!ME)
+        ME = SE ? SE : nullstr; /* default to SE value */
 
     /* Get rid of padding numbers for nh_HI and nh_HE.  Hope they
      * aren't really needed!!!  nh_HI and nh_HE are outputted to the
@@ -308,9 +298,6 @@ tty_startup(int *wid, int *hgt)
     AS = Tgetstr("as");
     AE = Tgetstr("ae");
     nh_CD = Tgetstr("cd");
-#ifdef TEXTCOLOR
-    MD = Tgetstr("md");
-#endif
 #ifdef TEXTCOLOR
 #if defined(TOS) && defined(__GNUC__)
     if (!strcmp(term, "builtin") || !strcmp(term, "tw52")
@@ -506,12 +493,10 @@ tty_end_screen()
 /* Cursor movements */
 
 /* Note to overlay tinkerers.  The placement of this overlay controls the
-   location
-   of the function xputc().  This function is not currently in trampoli.[ch]
-   files for what is deemed to be performance reasons.  If this define is
-   moved
-   and or xputc() is taken out of the ROOT overlay, then action must be taken
-   in trampoli.[ch]. */
+   location of the function xputc().  This function is not currently in
+   trampoli.[ch] files for what is deemed to be performance reasons.  If
+   this define is moved and or xputc() is taken out of the ROOT overlay,
+   then action must be taken in trampoli.[ch]. */
 
 void
 nocmov(int x, int y)
@@ -538,7 +523,7 @@ nocmov(int x, int y)
             cmov(x, y);
         } else {
             while ((int) ttyDisplay->cury < y) {
-                xputc('\n');
+                (void) xputc('\n');
                 ttyDisplay->curx = 0;
                 ttyDisplay->cury++;
             }
@@ -570,15 +555,26 @@ cmov(register int x, register int y)
     ttyDisplay->curx = x;
 }
 
-/* See note above. xputc() is a special function. */
-void
-#if defined(apollo)
-xputc(int c)
-#else
-xputc(char c)
-#endif
+/* See note above.  xputc() is a special function for overlays. */
+int
+xputc(int c) /* actually char, but explicitly specify its widened type */
 {
-    (void) putchar(c);
+    /*
+     * Note:  xputc() as a direct all to putchar() doesn't make any
+     * sense _if_ putchar() is a function.  But if it is a macro, an
+     * overlay configuration would want to avoid hidden code bloat
+     * from multiple putchar() expansions.  And it gets passed as an
+     * argument to tputs() so we have to guarantee an actual function
+     * (while possibly lacking ANSI's (func) syntax to override macro).
+     *
+     * xputc() used to be declared as 'void xputc(c) char c; {}' but
+     * avoiding the proper type 'int' just to avoid (void) casts when
+     * ignoring the result can't have been sufficent reason to add it.
+     * It also had '#if apollo' conditional to have the arg be int.
+     * Matching putchar()'s declaration and using explicit casts where
+     * warranted is more robust, so we're just a jacket around that.
+     */
+    return putchar(c);
 }
 
 void
@@ -587,11 +583,7 @@ xputs(const char *s)
 #ifndef TERMLIB
     (void) fputs(s, stdout);
 #else
-#if defined(NHSTDC) || defined(ULTRIX_PROTO)
-    tputs(s, 1, (int (*) ()) xputc);
-#else
     tputs(s, 1, xputc);
-#endif
 #endif
 }
 
@@ -606,7 +598,7 @@ cl_end()
         /* this looks terrible, especially on a slow terminal
            but is better than nothing */
         while (cx < CO) {
-            xputc(' ');
+            (void) xputc(' ');
             cx++;
         }
         tty_curs(BASE_WINDOW, (int) ttyDisplay->curx + 1,
@@ -742,6 +734,8 @@ tty_delay_output()
 #if defined(MICRO)
     register int i;
 #endif
+    if (iflags.debug_fuzzer)
+        return;
 #ifdef TIMED_DELAY
     if (flags.nap) {
         (void) fflush(stdout);
@@ -759,25 +753,18 @@ tty_delay_output()
     /* BUG: if the padding character is visible, as it is on the 5620
        then this looks terrible. */
     if (flags.null) {
+        tputs(
 #ifdef TERMINFO
-/* cbosgd!cbcephus!pds for SYS V R2 */
-#ifdef NHSTDC
-        tputs("$<50>", 1, (int (*) ()) xputc);
+              "$<50>",
 #else
-        tputs("$<50>", 1, xputc);
+              "50",
 #endif
-#else
-#if defined(NHSTDC) || defined(ULTRIX_PROTO)
-        tputs("50", 1, (int (*) ()) xputc);
-#else
-        tputs("50", 1, xputc);
-#endif
-#endif
+              1, xputc);
 
     } else if (ospeed > 0 && ospeed < SIZE(tmspc10) && nh_CM) {
         /* delay by sending cm(here) an appropriate number of times */
         register int cmlen =
-            strlen(tgoto(nh_CM, ttyDisplay->curx, ttyDisplay->cury));
+            (int) strlen(tgoto(nh_CM, ttyDisplay->curx, ttyDisplay->cury));
         register int i = 500 + tmspc10[ospeed] / 2;
 
         while (i > 0) {
@@ -799,7 +786,7 @@ cl_eos() /* free after Robert Viduya */
 
         while (cy <= LI - 2) {
             cl_end();
-            xputc('\n');
+            (void) xputc('\n');
             cy++;
         }
         cl_end();
@@ -841,8 +828,7 @@ cl_eos() /* free after Robert Viduya */
 #undef delay_output
 #undef TRUE
 #undef FALSE
-#define m_move curses_m_move /* Some curses.h decl m_move(), not used here \
-                                */
+#define m_move curses_m_move /* Some curses.h decl m_move(), not used here */
 
 #include <curses.h>
 
@@ -924,6 +910,7 @@ init_hilite()
     c = 6;
     while (c--) {
         char *work;
+
         scratch = tparm(setf, ti_map[c].ti_color);
         work = (char *) alloc(strlen(scratch) + md_len + 1);
         Strcpy(work, MD);
@@ -1160,19 +1147,30 @@ static char *
 s_atr2str(int n)
 {
     switch (n) {
+    case ATR_BLINK:
     case ATR_ULINE:
-        if (nh_US)
-            return nh_US;
+        if (n == ATR_BLINK) {
+            if (MB && *MB)
+                return MB;
+        } else { /* Underline */
+            if (nh_US && *nh_US)
+                return nh_US;
+        }
         /*FALLTHRU*/
     case ATR_BOLD:
-    case ATR_BLINK:
-#if defined(TERMLIB) && defined(TEXTCOLOR)
-        if (MD)
+        if (MD && *MD)
             return MD;
-#endif
-        return nh_HI;
+        if (nh_HI && *nh_HI)
+            return nh_HI;
+        break;
     case ATR_INVERSE:
-        return MR;
+        if (MR && *MR)
+            return MR;
+        break;
+    case ATR_DIM:
+        if (MH && *MH)
+            return MH;
+        break;
     }
     return nulstr;
 }
@@ -1182,23 +1180,53 @@ e_atr2str(int n)
 {
     switch (n) {
     case ATR_ULINE:
-        if (nh_UE)
+        if (nh_UE && *nh_UE)
             return nh_UE;
         /*FALLTHRU*/
     case ATR_BOLD:
     case ATR_BLINK:
-        return nh_HE;
+        if (nh_HE && *nh_HE)
+            return nh_HE;
+        /*FALLTHRU*/
+    case ATR_DIM:
     case ATR_INVERSE:
-        return ME;
+        if (ME && *ME)
+            return ME;
+        break;
     }
     return nulstr;
+}
+
+/* suppress nonfunctional highlights so render_status() might be able to
+   optimize more; keep this in sync with s_atr2str() */
+int
+term_attr_fixup(int msk)
+{
+    /* underline is converted to bold if its start sequence isn't available */
+    if ((msk & HL_ULINE) && (!nh_US || !*nh_US)) {
+        msk |= HL_BOLD;
+        msk &= ~HL_ULINE;
+    }
+    /* blink used to be converted to bold unconditionally; now depends on MB */
+    if ((msk & HL_BLINK) && (!MB || !*MB)) {
+        msk |= HL_BOLD;
+        msk &= ~HL_BLINK;
+    }
+    /* dim is ignored if its start sequence isn't available */
+    if ((msk & HL_DIM) && (!MH || !*MH)) {
+        msk &= ~HL_DIM;
+    }
+    return msk;
 }
 
 void
 term_start_attr(int attr)
 {
     if (attr) {
-        xputs(s_atr2str(attr));
+        const char *astr = s_atr2str(attr);
+
+        if (astr && *astr)
+            xputs(astr);
     }
 }
 
@@ -1206,7 +1234,10 @@ void
 term_end_attr(int attr)
 {
     if (attr) {
-        xputs(e_atr2str(attr));
+        const char *astr = e_atr2str(attr);
+
+        if (astr && *astr)
+            xputs(astr);
     }
 }
 
@@ -1233,38 +1264,12 @@ term_end_color()
 void
 term_start_color(int color)
 {
-    xputs(hilites[color]);
-}
-
-/* not to be confused with has_colors() in unixtty.c */
-int
-has_color(int color)
-{
-#ifdef X11_GRAPHICS
-    /* XXX has_color() should be added to windowprocs */
-    if (windowprocs.name != NULL && !strcmpi(windowprocs.name, "X11"))
-        return 1;
-#endif
-#ifdef GEM_GRAPHICS
-    /* XXX has_color() should be added to windowprocs */
-    if (windowprocs.name != NULL && !strcmpi(windowprocs.name, "Gem"))
-        return 1;
-#endif
-#ifdef QT_GRAPHICS
-    /* XXX has_color() should be added to windowprocs */
-    if (windowprocs.name != NULL && !strcmpi(windowprocs.name, "Qt"))
-        return 1;
-#endif
-#ifdef AMII_GRAPHICS
-    /* hilites[] not used */
-    return iflags.use_color ? 1 : 0;
-#else
-    return hilites[color] != (char *) 0;
-#endif
+    if (color < CLR_MAX)
+        xputs(hilites[color]);
 }
 
 #endif /* TEXTCOLOR */
 
-#endif /* TTY_GRAPHICS */
+#endif /* TTY_GRAPHICS && !NO_TERMS */
 
 /*termcap.c*/

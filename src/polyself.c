@@ -1,4 +1,4 @@
-/* NetHack 3.6	polyself.c	$NHDT-Date: 1520797126 2018/03/11 19:38:46 $  $NHDT-Branch: NetHack-3.6.0 $:$NHDT-Revision: 1.117 $ */
+/* NetHack 3.6	polyself.c	$NHDT-Date: 1573290419 2019/11/09 09:06:59 $  $NHDT-Branch: NetHack-3.6 $:$NHDT-Revision: 1.135 $ */
 /*      Copyright (C) 1987, 1988, 1989 by Ken Arromdee */
 /* NetHack may be freely redistributed.  See license for details. */
 
@@ -23,9 +23,9 @@
 
 STATIC_DCL void check_strangling(boolean);
 STATIC_DCL void polyman(const char *, const char *);
+STATIC_DCL void dropp(struct obj *);
 STATIC_DCL void break_armor(void);
 STATIC_DCL void drop_weapon(int);
-STATIC_DCL void uunstick(void);
 STATIC_DCL int armor_to_dragon(int);
 STATIC_DCL void newman(void);
 STATIC_DCL void polysense(void);
@@ -42,9 +42,8 @@ void
 set_uasmon()
 {
     struct permonst *mdat = &mons[u.umonnum];
-    int new_speed, old_speed = youmonst.data ? youmonst.data->mmove : 0;
 
-    set_mon_data(&youmonst, mdat, 0);
+    set_mon_data(&youmonst, mdat);
 
 #define PROPSET(PropIndx, ON)                          \
     do {                                               \
@@ -81,12 +80,16 @@ set_uasmon()
     PROPSET(HALLUC_RES, dmgtype(mdat, AD_HALU));
     PROPSET(SEE_INVIS, perceives(mdat));
     PROPSET(TELEPAT, telepathic(mdat));
-    PROPSET(INFRAVISION, infravision(mdat));
+    /* note that Infravision uses mons[race] rather than usual mons[role] */
+    PROPSET(INFRAVISION, infravision(Upolyd ? mdat : &mons[urace.malenum]));
     PROPSET(INVIS, pm_invisible(mdat));
     PROPSET(TELEPORT, can_teleport(mdat));
     PROPSET(TELEPORT_CONTROL, control_teleport(mdat));
     PROPSET(LEVITATION, is_floater(mdat));
-    PROPSET(FLYING, is_flyer(mdat));
+    /* floating eye is the only 'floater'; it is also flagged as a 'flyer';
+       suppress flying for it so that enlightenment doesn't confusingly
+       show latent flight capability always blocked by levitation */
+    PROPSET(FLYING, (is_flyer(mdat) && !is_floater(mdat)));
     PROPSET(SWIMMING, is_swimmer(mdat));
     /* [don't touch MAGICAL_BREATHING here; both Amphibious and Breathless
        key off of it but include different monster forms...] */
@@ -98,17 +101,9 @@ set_uasmon()
     float_vs_flight(); /* maybe toggle (BFlying & I_SPECIAL) */
     polysense();
 
-    if (youmonst.movement) {
-        new_speed = mdat->mmove;
-        /* prorate unused movement if new form is slower so that
-           it doesn't get extra moves leftover from previous form;
-           if new form is faster, leave unused movement as is */
-        if (new_speed < old_speed)
-            youmonst.movement = new_speed * youmonst.movement / old_speed;
-    }
-
 #ifdef STATUS_HILITES
-    status_initialize(REASSESS_ONLY);
+    if (VIA_WINDOWPORT())
+        status_initialize(REASSESS_ONLY);
 #endif
 }
 
@@ -116,12 +111,21 @@ set_uasmon()
 void
 float_vs_flight()
 {
-    /* floating overrides flight; normally float_up() and float_down()
-       handle this, but sometimes they're skipped */
-    if (HLevitation || ELevitation)
+    boolean stuck_in_floor = (u.utrap && u.utraptype != TT_PIT);
+
+    /* floating overrides flight; so does being trapped in the floor */
+    if ((HLevitation || ELevitation)
+        || ((HFlying || EFlying) && stuck_in_floor))
         BFlying |= I_SPECIAL;
     else
         BFlying &= ~I_SPECIAL;
+    /* being trapped on the ground (bear trap, web, molten lava survived
+       with fire resistance, former lava solidified via cold, tethered
+       to a buried iron ball) overrides floating--the floor is reachable */
+    if ((HLevitation || ELevitation) && stuck_in_floor)
+        BLevitation |= I_SPECIAL;
+    else
+        BLevitation &= ~I_SPECIAL;
     context.botl = TRUE;
 }
 
@@ -158,7 +162,7 @@ STATIC_OVL void
 polyman(const char *fmt, const char *arg)
 {
     boolean sticky = (sticks(youmonst.data) && u.ustuck && !u.uswallow),
-            was_mimicking = (youmonst.m_ap_type == M_AP_OBJECT);
+            was_mimicking = (U_AP_TYPE != M_AP_NOTHING);
     boolean was_blind = !!Blind;
 
     if (Upolyd) {
@@ -181,6 +185,7 @@ polyman(const char *fmt, const char *arg)
         if (multi < 0)
             unmul("");
         youmonst.m_ap_type = M_AP_NOTHING;
+        youmonst.mappearance = 0;
     }
 
     newsym(u.ux, u.uy);
@@ -205,8 +210,8 @@ polyman(const char *fmt, const char *arg)
     if (u.twoweap && !could_twoweap(youmonst.data))
         untwoweapon();
 
-    if (u.utraptype == TT_PIT && u.utrap) {
-        u.utrap = rn1(6, 2); /* time to escape resets */
+    if (u.utrap && u.utraptype == TT_PIT) {
+        set_utrap(rn1(6, 2), TT_PIT); /* time to escape resets */
     }
     if (was_blind && !Blind) { /* reverting from eyeless */
         Blinded = 1L;
@@ -619,13 +624,14 @@ polymon(int mntmp)
     }
 
     /* if stuck mimicking gold, stop immediately */
-    if (multi < 0 && youmonst.m_ap_type == M_AP_OBJECT
+    if (multi < 0 && U_AP_TYPE == M_AP_OBJECT
         && youmonst.data->mlet != S_MIMIC)
         unmul("");
     /* if becoming a non-mimic, stop mimicking anything */
     if (mons[mntmp].mlet != S_MIMIC) {
         /* as in polyman() */
         youmonst.m_ap_type = M_AP_NOTHING;
+        youmonst.mappearance = 0;
     }
     if (is_male(&mons[mntmp])) {
         if (flags.female)
@@ -681,7 +687,7 @@ polymon(int mntmp)
     }
     check_strangling(FALSE); /* maybe stop strangling */
     if (nohands(youmonst.data))
-        Glib = 0;
+        make_glib(0);
 
     /*
     mlvl = adj_lev(&mons[mntmp]);
@@ -721,8 +727,8 @@ polymon(int mntmp)
     drop_weapon(1);
     (void) hideunder(&youmonst);
 
-    if (u.utraptype == TT_PIT && u.utrap) {
-        u.utrap = rn1(6, 2); /* time to escape resets */
+    if (u.utrap && u.utraptype == TT_PIT) {
+        set_utrap(rn1(6, 2), TT_PIT); /* time to escape resets */
     }
     if (was_blind && !Blind) { /* previous form was eyeless */
         Blinded = 1L;
@@ -730,10 +736,14 @@ polymon(int mntmp)
     }
     newsym(u.ux, u.uy); /* Change symbol */
 
+    /* [note:  this 'sticky' handling is only sufficient for changing from
+       grabber to engulfer or vice versa because engulfing by poly'd hero
+       always ends immediately so won't be in effect during a polymorph] */
     if (!sticky && !u.uswallow && u.ustuck && sticks(youmonst.data))
         u.ustuck = 0;
     else if (sticky && !sticks(youmonst.data))
         uunstick();
+
     if (u.usteed) {
         if (touch_petrifies(u.usteed->data) && !Stone_resistance && rnl(3)) {
             pline("%s touch %s.", no_longer_petrify_resistant,
@@ -774,8 +784,12 @@ polymon(int mntmp)
         if (is_vampire(youmonst.data))
             pline(use_thec, monsterc, "change shape");
 
-        if (lays_eggs(youmonst.data) && flags.female)
-            pline(use_thec, "sit", "lay an egg");
+        if (lays_eggs(youmonst.data) && flags.female &&
+            !(youmonst.data == &mons[PM_GIANT_EEL]
+                || youmonst.data == &mons[PM_ELECTRIC_EEL]))
+            pline(use_thec, "sit",
+                  eggs_in_water(youmonst.data) ?
+                      "spawn in the water" : "lay an egg");
     }
 
     /* you now know what an egg of your type looks like */
@@ -790,17 +804,17 @@ polymon(int mntmp)
         spoteffects(TRUE);
     if (Passes_walls && u.utrap
         && (u.utraptype == TT_INFLOOR || u.utraptype == TT_BURIEDBALL)) {
-        u.utrap = 0;
-        if (u.utraptype == TT_INFLOOR)
+        if (u.utraptype == TT_INFLOOR) {
             pline_The("rock seems to no longer trap you.");
-        else {
+        } else {
             pline_The("buried ball is no longer bound to you.");
             buried_ball_to_freedom();
         }
+        reset_utrap(TRUE);
     } else if (likes_lava(youmonst.data) && u.utrap
                && u.utraptype == TT_LAVA) {
-        u.utrap = 0;
         pline_The("%s now feels soothing.", hliquid("lava"));
+        reset_utrap(TRUE);
     }
     if (amorphous(youmonst.data) || is_whirly(youmonst.data)
         || unsolid(youmonst.data)) {
@@ -819,11 +833,11 @@ polymon(int mntmp)
         You("are no longer stuck in the %s.",
             u.utraptype == TT_WEB ? "web" : "bear trap");
         /* probably should burn webs too if PM_FIRE_ELEMENTAL */
-        u.utrap = 0;
+        reset_utrap(TRUE);
     }
     if (webmaker(youmonst.data) && u.utrap && u.utraptype == TT_WEB) {
         You("orient yourself on the web.");
-        u.utrap = 0;
+        reset_utrap(TRUE);
     }
     check_strangling(TRUE); /* maybe start strangling */
 
@@ -839,6 +853,32 @@ polymon(int mntmp)
     if (!uarmg)
         selftouch(no_longer_petrify_resistant);
     return 1;
+}
+
+/* dropx() jacket for break_armor() */
+STATIC_OVL void
+dropp(struct obj *obj)
+{
+    struct obj *otmp;
+
+    /*
+     * Dropping worn armor while polymorphing might put hero into water
+     * (loss of levitation boots or water walking boots that the new
+     * form can't wear), where emergency_disrobe() could remove it from
+     * inventory.  Without this, dropx() could trigger an 'object lost'
+     * panic.  Right now, boots are the only armor which might encounter
+     * this situation, but handle it for all armor.
+     *
+     * Hypothetically, 'obj' could have merged with something (not
+     * applicable for armor) and no longer be a valid pointer, so scan
+     * inventory for it instead of trusting obj->where.
+     */
+    for (otmp = invent; otmp; otmp = otmp->nobj) {
+        if (otmp == obj) {
+            dropx(obj);
+            break;
+        }
+    }
 }
 
 STATIC_OVL void
@@ -859,7 +899,7 @@ break_armor()
             if (otmp->oartifact) {
                 Your("%s falls off!", cloak_simple_name(otmp));
                 (void) Cloak_off();
-                dropx(otmp);
+                dropp(otmp);
             } else {
                 Your("%s tears apart!", cloak_simple_name(otmp));
                 (void) Cloak_off();
@@ -876,7 +916,7 @@ break_armor()
                 cancel_don();
             Your("armor falls around you!");
             (void) Armor_gone();
-            dropx(otmp);
+            dropp(otmp);
         }
         if ((otmp = uarmc) != 0) {
             if (is_whirly(youmonst.data))
@@ -884,7 +924,7 @@ break_armor()
             else
                 You("shrink out of your %s!", cloak_simple_name(otmp));
             (void) Cloak_off();
-            dropx(otmp);
+            dropp(otmp);
         }
         if ((otmp = uarmu) != 0) {
             if (is_whirly(youmonst.data))
@@ -892,7 +932,7 @@ break_armor()
             else
                 You("become much too small for your shirt!");
             setworn((struct obj *) 0, otmp->owornmask & W_ARMU);
-            dropx(otmp);
+            dropp(otmp);
         }
     }
     if (has_horns(youmonst.data)) {
@@ -910,7 +950,7 @@ break_armor()
                 Your("%s falls to the %s!", helm_simple_name(otmp),
                      surface(u.ux, u.uy));
                 (void) Helmet_off();
-                dropx(otmp);
+                dropp(otmp);
             }
         }
     }
@@ -922,12 +962,13 @@ break_armor()
             You("drop your gloves%s!", uwep ? " and weapon" : "");
             drop_weapon(0);
             (void) Gloves_off();
-            dropx(otmp);
+            /* Glib manipulation (ends immediately) handled by Gloves_off */
+            dropp(otmp);
         }
         if ((otmp = uarms) != 0) {
             You("can no longer hold your shield!");
             (void) Shield_off();
-            dropx(otmp);
+            dropp(otmp);
         }
         if ((otmp = uarmh) != 0) {
             if (donning(otmp))
@@ -935,7 +976,7 @@ break_armor()
             Your("%s falls to the %s!", helm_simple_name(otmp),
                  surface(u.ux, u.uy));
             (void) Helmet_off();
-            dropx(otmp);
+            dropp(otmp);
         }
     }
     if (nohands(youmonst.data) || verysmall(youmonst.data)
@@ -949,7 +990,7 @@ break_armor()
                 Your("boots %s off your feet!",
                      verysmall(youmonst.data) ? "slide" : "are pushed");
             (void) Boots_off();
-            dropx(otmp);
+            dropp(otmp);
         }
     }
 }
@@ -1001,6 +1042,10 @@ drop_weapon(int alone)
                 updateinv = FALSE;
             else if (candropwep)
                 dropx(otmp);
+            /* [note: dropp vs dropx -- if heart of ahriman is wielded, we
+               might be losing levitation by dropping it; but that won't
+               happen until the drop, unlike Boots_off() dumping hero into
+               water and triggering emergency_disrobe() before dropx()] */
 
             if (updateinv)
                 update_inventory();
@@ -1013,6 +1058,8 @@ drop_weapon(int alone)
 void
 rehumanize()
 {
+    boolean was_flying = (Flying != 0);
+
     /* You can't revert back while unchanging */
     if (Unchanging) {
         if (u.mh < 1) {
@@ -1043,7 +1090,9 @@ rehumanize()
     context.botl = 1;
     vision_full_recalc = 1;
     (void) encumber_msg();
-
+    if (was_flying && !Flying && u.usteed)
+        You("and %s return gently to the %s.",
+            mon_nam(u.usteed), surface(u.ux, u.uy));
     retouch_equipment(2);
     if (!uarmg)
         selftouch(no_longer_petrify_resistant);
@@ -1098,7 +1147,7 @@ dospit()
             break;
         default:
             impossible("bad attack type in dospit");
-        /* fall through */
+            /*FALLTHRU*/
         case AD_ACID:
             otmp = mksobj(ACID_VENOM, TRUE, FALSE);
             break;
@@ -1304,8 +1353,8 @@ dogaze()
                 pline("%s seems not to notice your gaze.", Monnam(mtmp));
             } else if (mtmp->minvis && !See_invisible) {
                 You_cant("see where to gaze at %s.", Monnam(mtmp));
-            } else if (mtmp->m_ap_type == M_AP_FURNITURE
-                       || mtmp->m_ap_type == M_AP_OBJECT) {
+            } else if (M_AP_TYPE(mtmp) == M_AP_FURNITURE
+                       || M_AP_TYPE(mtmp) == M_AP_OBJECT) {
                 looked--;
                 continue;
             } else if (flags.safe_dog && mtmp->mtame && !Confusion) {
@@ -1350,7 +1399,7 @@ dogaze()
                         (void) destroy_mitem(mtmp, SPBOOK_CLASS, AD_FIRE);
                     if (dmg)
                         mtmp->mhp -= dmg;
-                    if (mtmp->mhp <= 0)
+                    if (DEADMONSTER(mtmp))
                         killed(mtmp);
                 }
                 /* For consistency with passive() in uhitm.c, this only
@@ -1413,7 +1462,7 @@ dohide()
                        : (humanoid(u.ustuck->data) ? "holding someone"
                                                    : "holding that creature"));
         if (u.uundetected
-            || (ismimic && youmonst.m_ap_type != M_AP_NOTHING)) {
+            || (ismimic && U_AP_TYPE != M_AP_NOTHING)) {
             u.uundetected = 0;
             youmonst.m_ap_type = M_AP_NOTHING;
             newsym(u.ux, u.uy);
@@ -1451,7 +1500,7 @@ dohide()
      * else make youhiding() give smarter messages at such spots.
      */
 
-    if (u.uundetected || (ismimic && youmonst.m_ap_type != M_AP_NOTHING)) {
+    if (u.uundetected || (ismimic && U_AP_TYPE != M_AP_NOTHING)) {
         youhiding(FALSE, 1); /* "you are already hiding" */
         return 0;
     }
@@ -1512,16 +1561,20 @@ domindblast()
                 u_sen ? "telepathy"
                       : telepathic(mtmp->data) ? "latent telepathy" : "mind");
             mtmp->mhp -= rnd(15);
-            if (mtmp->mhp <= 0)
+            if (DEADMONSTER(mtmp))
                 killed(mtmp);
         }
     }
     return 1;
 }
 
-STATIC_OVL void
+void
 uunstick()
 {
+    if (!u.ustuck) {
+        impossible("uunstick: no ustuck?");
+        return;
+    }
     pline("%s is no longer in your clutches.", Monnam(u.ustuck));
     u.ustuck = 0;
 }

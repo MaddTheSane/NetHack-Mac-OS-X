@@ -1,4 +1,4 @@
-/* NetHack 3.6	rumors.c	$NHDT-Date: 1446713640 2015/11/05 08:54:00 $  $NHDT-Branch: master $:$NHDT-Revision: 1.27 $ */
+/* NetHack 3.6	rumors.c	$NHDT-Date: 1583445339 2020/03/05 21:55:39 $  $NHDT-Branch: NetHack-3.6-Mar2020 $:$NHDT-Revision: 1.38 $ */
 /* Copyright (c) Stichting Mathematisch Centrum, Amsterdam, 1985. */
 /*-Copyright (c) Robert Patrick Rankin, 2012. */
 /* NetHack may be freely redistributed.  See license for details. */
@@ -43,6 +43,7 @@
 
 STATIC_DCL void init_rumors(dlb *);
 STATIC_DCL void init_oracles(dlb *);
+STATIC_DCL void couldnt_open_file(const char *);
 
 /* rumor size variables are signed so that value -1 can be used as a flag */
 static long true_rumor_size = 0L, false_rumor_size;
@@ -122,12 +123,12 @@ getrumor(int truth, /* 1=true, -1=false, 0=either */
             case 2: /*(might let a bogus input arg sneak thru)*/
             case 1:
                 beginning = (long) true_rumor_start;
-                tidbit = Rand() % true_rumor_size;
+                tidbit = rn2(true_rumor_size);
                 break;
             case 0: /* once here, 0 => false rather than "either"*/
             case -1:
                 beginning = (long) false_rumor_start;
-                tidbit = Rand() % false_rumor_size;
+                tidbit = rn2(false_rumor_size);
                 break;
             default:
                 impossible("strange truth value for rumor");
@@ -153,12 +154,13 @@ getrumor(int truth, /* 1=true, -1=false, 0=either */
         else if (!in_mklev) /* avoid exercizing wisdom for graffiti */
             exercise(A_WIS, (adjtruth > 0));
     } else {
-        pline("Can't open rumors file!");
+        couldnt_open_file(RUMORFILE);
         true_rumor_size = -1; /* don't try to open it again */
     }
-/* this is safe either way, so do it always since we can't get the definition
- * out of makedefs.c
- */
+
+    /* this is safe either way, so do it always since we can't get the
+     * definition out of makedefs.c
+     */
 #define PAD_RUMORS_TO
 #ifdef PAD_RUMORS_TO
     /* remove padding */
@@ -180,12 +182,12 @@ getrumor(int truth, /* 1=true, -1=false, 0=either */
 void
 rumor_check()
 {
-    dlb *rumors;
+    dlb *rumors = 0;
     winid tmpwin;
     char *endp, line[BUFSZ], xbuf[BUFSZ], rumor_buf[BUFSZ];
 
     if (true_rumor_size < 0L) { /* we couldn't open RUMORFILE */
-    no_rumors:
+ no_rumors:
         pline("rumors not accessible.");
         return;
     }
@@ -198,29 +200,27 @@ rumor_check()
         rumor_buf[0] = '\0';
         if (true_rumor_size == 0L) { /* if this is 1st outrumor() */
             init_rumors(rumors);
-            if (true_rumor_size < 0L)
+            if (true_rumor_size < 0L) {
+                rumors = (dlb *) 0; /* init_rumors() closes it upon failure */
                 goto no_rumors; /* init failed */
+            }
         }
         tmpwin = create_nhwindow(NHW_TEXT);
 
         /*
          * reveal the values.
          */
-
-        Sprintf(
-            rumor_buf,
-            "T start=%06ld (%06lx), end=%06ld (%06lx), size=%06ld (%06lx)",
-            (long) true_rumor_start, true_rumor_start, true_rumor_end,
-            (unsigned long) true_rumor_end, true_rumor_size,
-            (unsigned long) true_rumor_size);
+        Sprintf(rumor_buf,
+               "T start=%06ld (%06lx), end=%06ld (%06lx), size=%06ld (%06lx)",
+                (long) true_rumor_start, true_rumor_start,
+                true_rumor_end, (unsigned long) true_rumor_end,
+                true_rumor_size, (unsigned long) true_rumor_size);
         putstr(tmpwin, 0, rumor_buf);
-
-        Sprintf(
-            rumor_buf,
-            "F start=%06ld (%06lx), end=%06ld (%06lx), size=%06ld (%06lx)",
-            (long) false_rumor_start, false_rumor_start, false_rumor_end,
-            (unsigned long) false_rumor_end, false_rumor_size,
-            (unsigned long) false_rumor_size);
+        Sprintf(rumor_buf,
+               "F start=%06ld (%06lx), end=%06ld (%06lx), size=%06ld (%06lx)",
+                (long) false_rumor_start, false_rumor_start,
+                false_rumor_end, (unsigned long) false_rumor_end,
+                false_rumor_size, (unsigned long) false_rumor_size);
         putstr(tmpwin, 0, rumor_buf);
 
         /*
@@ -270,35 +270,39 @@ rumor_check()
         display_nhwindow(tmpwin, TRUE);
         destroy_nhwindow(tmpwin);
     } else {
-        impossible("Can't open rumors file!");
+        couldnt_open_file(RUMORFILE);
         true_rumor_size = -1; /* don't try to open it again */
     }
 }
 
-/* Gets a random line of text from file 'fname', and returns it. */
+/* Gets a random line of text from file 'fname', and returns it.
+   rng is the random number generator to use, and should act like rn2 does. */
 char *
-get_rnd_text(const char *fname, char *buf)
+get_rnd_text(const char *fname, char *buf, int (*rng)(int))
 {
     dlb *fh;
 
     buf[0] = '\0';
-
     fh = dlb_fopen(fname, "r");
-
     if (fh) {
-        /* TODO: cache sizetxt, starttxt, endtxt. maybe cache file contents?
-         */
-        long sizetxt = 0, starttxt = 0, endtxt = 0, tidbit = 0;
+        /* TODO: cache sizetxt, starttxt, endtxt. maybe cache file contents? */
+        long sizetxt = 0L, starttxt = 0L, endtxt = 0L, tidbit = 0L;
         char *endp, line[BUFSZ], xbuf[BUFSZ];
-        (void) dlb_fgets(line, sizeof line,
-                         fh); /* skip "don't edit" comment */
+
+        /* skip "don't edit" comment */
+        (void) dlb_fgets(line, sizeof line, fh);
 
         (void) dlb_fseek(fh, 0L, SEEK_CUR);
         starttxt = dlb_ftell(fh);
         (void) dlb_fseek(fh, 0L, SEEK_END);
         endtxt = dlb_ftell(fh);
         sizetxt = endtxt - starttxt;
-        tidbit = Rand() % sizetxt;
+        /* might be zero (only if file is empty); should complain in that
+           case but if could happen over and over, also the suggestion
+           that save and restore might fix the problem wouldn't be useful */
+        if (sizetxt < 1L)
+            return buf;
+        tidbit = (*rng)(sizetxt);
 
         (void) dlb_fseek(fh, starttxt + tidbit, SEEK_SET);
         (void) dlb_fgets(line, sizeof line, fh);
@@ -310,8 +314,10 @@ get_rnd_text(const char *fname, char *buf)
             *endp = 0;
         Strcat(buf, xcrypt(line, xbuf));
         (void) dlb_fclose(fh);
-    } else
-        impossible("Can't open file %s!", fname);
+    } else {
+        couldnt_open_file(fname);
+    }
+
     return buf;
 }
 
@@ -386,7 +392,8 @@ save_oracles(int fd, int mode)
     if (perform_bwrite(mode)) {
         bwrite(fd, (genericptr_t) &oracle_cnt, sizeof oracle_cnt);
         if (oracle_cnt)
-            bwrite(fd, (genericptr_t) oracle_loc, oracle_cnt * sizeof(long));
+            bwrite(fd, (genericptr_t) oracle_loc, 
+                    oracle_cnt * sizeof(long));
     }
     if (release_data(mode)) {
         if (oracle_cnt) {
@@ -410,11 +417,10 @@ restore_oracles(int fd)
 void
 outoracle(boolean special, boolean delphi)
 {
-    char line[COLNO];
-    char *endp;
+    winid tmpwin;
     dlb *oracles;
     int oracle_idx;
-    char xbuf[BUFSZ];
+    char *endp, line[COLNO], xbuf[BUFSZ];
 
     /* early return if we couldn't open ORACLEFILE on previous attempt,
        or if all the oracularities are already exhausted */
@@ -424,17 +430,16 @@ outoracle(boolean special, boolean delphi)
     oracles = dlb_fopen(ORACLEFILE, "r");
 
     if (oracles) {
-        winid tmpwin;
         if (oracle_flg == 0) { /* if this is the first outoracle() */
             init_oracles(oracles);
             oracle_flg = 1;
             if (oracle_cnt == 0)
-                return;
+                goto close_oracles;
         }
         /* oracle_loc[0] is the special oracle;
            oracle_loc[1..oracle_cnt-1] are normal ones */
         if (oracle_cnt <= 1 && !special)
-            return; /*(shouldn't happen)*/
+            goto close_oracles; /*(shouldn't happen)*/
         oracle_idx = special ? 0 : rnd((int) oracle_cnt - 1);
         (void) dlb_fseek(oracles, (long) oracle_loc[oracle_idx], SEEK_SET);
         if (!special) /* move offset of very last one into this slot */
@@ -457,9 +462,10 @@ outoracle(boolean special, boolean delphi)
         }
         display_nhwindow(tmpwin, TRUE);
         destroy_nhwindow(tmpwin);
+ close_oracles:
         (void) dlb_fclose(oracles);
     } else {
-        pline("Can't open oracles file!");
+        couldnt_open_file(ORACLEFILE);
         oracle_flg = -1; /* don't try to open it again */
     }
 }
@@ -534,6 +540,21 @@ doconsult(struct monst *oracl)
         newexplevel();
     }
     return 1;
+}
+
+STATIC_OVL void
+couldnt_open_file(const char *filename)
+{
+    int save_something = program_state.something_worth_saving;
+
+    /* most likely the file is missing, so suppress impossible()'s
+       "saving and restoring might fix this" (unless the fuzzer,
+       which escalates impossible to panic, is running) */
+    if (!iflags.debug_fuzzer)
+        program_state.something_worth_saving = 0;
+
+    impossible("Can't open '%s' file.", filename);
+    program_state.something_worth_saving = save_something;
 }
 
 /*rumors.c*/

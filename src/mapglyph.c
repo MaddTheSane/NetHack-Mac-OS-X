@@ -1,4 +1,4 @@
-/* NetHack 3.6	mapglyph.c	$NHDT-Date: 1448175698 2015/11/22 07:01:38 $  $NHDT-Branch: master $:$NHDT-Revision: 1.40 $ */
+/* NetHack 3.6	mapglyph.c	$NHDT-Date: 1573943501 2019/11/16 22:31:41 $  $NHDT-Branch: NetHack-3.6 $:$NHDT-Revision: 1.51 $ */
 /* Copyright (c) David Cohrs, 1991                                */
 /* NetHack may be freely redistributed.  See license for details. */
 
@@ -9,7 +9,12 @@
 #include "color.h"
 #define HI_DOMESTIC CLR_WHITE /* monst.c */
 
-static int explcolors[] = {
+#if !defined(TTY_GRAPHICS)
+#define has_color(n) TRUE
+#endif
+
+#ifdef TEXTCOLOR
+static const int explcolors[] = {
     CLR_BLACK,   /* dark    */
     CLR_GREEN,   /* noxious */
     CLR_BROWN,   /* muddy   */
@@ -19,11 +24,6 @@ static int explcolors[] = {
     CLR_WHITE,   /* frosty  */
 };
 
-#if !defined(TTY_GRAPHICS)
-#define has_color(n) TRUE
-#endif
-
-#ifdef TEXTCOLOR
 #define zap_color(n) color = iflags.use_color ? zapcolors[n] : NO_COLOR
 #define cmap_color(n) color = iflags.use_color ? defsyms[n].color : NO_COLOR
 #define obj_color(n) color = iflags.use_color ? objects[n].oc_color : NO_COLOR
@@ -59,15 +59,16 @@ static int explcolors[] = {
 
 /*ARGSUSED*/
 int
-mapglyph(int glyph, int *ochar, int *ocolor, unsigned *ospecial, int x, int y)
+mapglyph(int glyph, int *ochar, int *ocolor, unsigned *ospecial, int x, int y, unsigned mgflags)
 {
     register int offset, idx;
     int color = NO_COLOR;
     nhsym ch;
     unsigned special = 0;
     /* condense multiple tests in macro version down to single */
-    boolean has_rogue_ibm_graphics = HAS_ROGUE_IBM_GRAPHICS;
-    boolean has_rogue_color = (has_rogue_ibm_graphics
+    boolean has_rogue_ibm_graphics = HAS_ROGUE_IBM_GRAPHICS,
+            is_you = (x == u.ux && y == u.uy),
+            has_rogue_color = (has_rogue_ibm_graphics
                                && symset[currentgraphics].nocolor == 0);
 
     /*
@@ -203,7 +204,7 @@ mapglyph(int glyph, int *ochar, int *ocolor, unsigned *ospecial, int x, int y)
     } else { /* a monster */
         idx = mons[glyph].mlet + SYM_OFF_M;
         if (has_rogue_color && iflags.use_color) {
-            if (x == u.ux && y == u.uy)
+            if (is_you)
                 /* actually player should be yellow-on-gray if in corridor */
                 color = CLR_YELLOW;
             else
@@ -212,10 +213,27 @@ mapglyph(int glyph, int *ochar, int *ocolor, unsigned *ospecial, int x, int y)
             mon_color(glyph);
 #ifdef TEXTCOLOR
             /* special case the hero for `showrace' option */
-            if (iflags.use_color && x == u.ux && y == u.uy
-                && flags.showrace && !Upolyd)
+            if (iflags.use_color && is_you && flags.showrace && !Upolyd)
                 color = HI_DOMESTIC;
 #endif
+        }
+    }
+
+    /* These were requested by a blind player to enhance screen reader use */
+    if (sysopt.accessibility == 1 && !(mgflags & MG_FLAG_NOOVERRIDE)) {
+        int ovidx;
+
+        if ((special & MG_PET) != 0) {
+            ovidx = SYM_PET_OVERRIDE + SYM_OFF_X;
+            if (Is_rogue_level(&u.uz) ? ov_rogue_syms[ovidx]
+                                      : ov_primary_syms[ovidx])
+                idx = ovidx;
+        }
+        if (is_you) {
+            ovidx = SYM_HERO_OVERRIDE + SYM_OFF_X;
+            if (Is_rogue_level(&u.uz) ? ov_rogue_syms[ovidx]
+                                      : ov_primary_syms[ovidx])
+                idx = ovidx;
         }
     }
 
@@ -223,24 +241,100 @@ mapglyph(int glyph, int *ochar, int *ocolor, unsigned *ospecial, int x, int y)
 #ifdef TEXTCOLOR
     /* Turn off color if no color defined, or rogue level w/o PC graphics. */
     if (!has_color(color) || (Is_rogue_level(&u.uz) && !has_rogue_color))
-        color = NO_COLOR;
 #endif
-
+        color = NO_COLOR;
     *ochar = (int) ch;
     *ospecial = special;
-#ifdef TEXTCOLOR
     *ocolor = color;
-#endif
     return idx;
 }
 
 char *
 encglyph(int glyph)
 {
-    static char encbuf[20];
+    static char encbuf[20]; /* 10+1 would suffice */
 
     Sprintf(encbuf, "\\G%04X%04X", context.rndencode, glyph);
     return encbuf;
+}
+
+char *
+decode_mixed(char *buf, const char *str)
+{
+    static const char hex[] = "00112233445566778899aAbBcCdDeEfF";
+    char *put = buf;
+
+    if (!str)
+        return strcpy(buf, "");
+
+    while (*str) {
+        if (*str == '\\') {
+            int rndchk, dcount, so, gv, ch = 0, oc = 0;
+            unsigned os = 0;
+            const char *dp, *save_str;
+
+            save_str = str++;
+            switch (*str) {
+            case 'G': /* glyph value \GXXXXNNNN*/
+                rndchk = dcount = 0;
+                for (++str; *str && ++dcount <= 4; ++str)
+                    if ((dp = index(hex, *str)) != 0)
+                        rndchk = (rndchk * 16) + ((int) (dp - hex) / 2);
+                    else
+                        break;
+                if (rndchk == context.rndencode) {
+                    gv = dcount = 0;
+                    for (; *str && ++dcount <= 4; ++str)
+                        if ((dp = index(hex, *str)) != 0)
+                            gv = (gv * 16) + ((int) (dp - hex) / 2);
+                        else
+                            break;
+                    so = mapglyph(gv, &ch, &oc, &os, 0, 0, 0);
+                    *put++ = showsyms[so];
+                    /* 'str' is ready for the next loop iteration and '*str'
+                       should not be copied at the end of this iteration */
+                    continue;
+                } else {
+                    /* possible forgery - leave it the way it is */
+                    str = save_str;
+                }
+                break;
+#if 0
+            case 'S': /* symbol offset */
+                so = rndchk = dcount = 0;
+                for (++str; *str && ++dcount <= 4; ++str)
+                    if ((dp = index(hex, *str)) != 0)
+                        rndchk = (rndchk * 16) + ((int) (dp - hex) / 2);
+                    else
+                        break;
+                if (rndchk == context.rndencode) {
+                    dcount = 0;
+                    for (; *str && ++dcount <= 2; ++str)
+                        if ((dp = index(hex, *str)) != 0)
+                            so = (so * 16) + ((int) (dp - hex) / 2);
+                        else
+                            break;
+                }
+                *put++ = showsyms[so];
+                break;
+#endif
+            case '\\':
+                break;
+            case '\0':
+                /* String ended with '\\'.  This can happen when someone
+                   names an object with a name ending with '\\', drops the
+                   named object on the floor nearby and does a look at all
+                   nearby objects. */
+                /* brh - should we perhaps not allow things to have names
+                   that contain '\\' */
+                str = save_str;
+                break;
+            }
+        }
+        *put++ = *str++;
+    }
+    *put = '\0';
+    return buf;
 }
 
 /*
@@ -258,71 +352,10 @@ encglyph(int glyph)
 void
 genl_putmixed(winid window, int attr, const char *str)
 {
-    static const char hex[] = "00112233445566778899aAbBcCdDeEfF";
     char buf[BUFSZ];
-    const char *cp = str;
-    char *put = buf;
 
-    while (*cp) {
-        if (*cp == '\\') {
-            int rndchk, dcount, so, gv, ch = 0, oc = 0;
-            unsigned os = 0;
-            const char *dp, *save_cp;
-
-            save_cp = cp++;
-            switch (*cp) {
-            case 'G': /* glyph value \GXXXXNNNN*/
-                rndchk = dcount = 0;
-                for (++cp; *cp && ++dcount <= 4; ++cp)
-                    if ((dp = index(hex, *cp)) != 0)
-                        rndchk = (rndchk * 16) + ((int) (dp - hex) / 2);
-                    else
-                        break;
-                if (rndchk == context.rndencode) {
-                    gv = dcount = 0;
-                    for (; *cp && ++dcount <= 4; ++cp)
-                        if ((dp = index(hex, *cp)) != 0)
-                            gv = (gv * 16) + ((int) (dp - hex) / 2);
-                        else
-                            break;
-                    so = mapglyph(gv, &ch, &oc, &os, 0, 0);
-                    *put++ = showsyms[so];
-                    /* 'cp' is ready for the next loop iteration and '*cp'
-                       should not be copied at the end of this iteration */
-                    continue;
-                } else {
-                    /* possible forgery - leave it the way it is */
-                    cp = save_cp;
-                }
-                break;
-#if 0
-            case 'S': /* symbol offset */
-                so = rndchk = dcount = 0;
-                for (++cp; *cp && ++dcount <= 4; ++cp)
-                    if ((dp = index(hex, *cp)) != 0)
-                        rndchk = (rndchk * 16) + ((int) (dp - hex) / 2);
-                    else
-                        break;
-                if (rndchk == context.rndencode) {
-                    dcount = 0;
-                    for (; *cp && ++dcount <= 2; ++cp)
-                        if ((dp = index(hex, *cp)) != 0)
-                            so = (so * 16) + ((int) (dp - hex) / 2);
-                        else
-                            break;
-                }
-                *put++ = showsyms[so];
-                break;
-#endif
-            case '\\':
-                break;
-            }
-        }
-        *put++ = *cp++;
-    }
-    *put = '\0';
     /* now send it to the normal putstr */
-    putstr(window, attr, buf);
+    putstr(window, attr, decode_mixed(buf, str));
 }
 
 /*mapglyph.c*/

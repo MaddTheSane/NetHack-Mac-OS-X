@@ -28,7 +28,9 @@ long amii_scrnmode;
  * the intuition interface for the amiga...
  */
 struct window_procs amii_procs = {
-    "amii", WC_COLOR | WC_HILITE_PET | WC_INVERSE, 0L, amii_init_nhwindows,
+    "amii", WC_COLOR | WC_HILITE_PET | WC_INVERSE,
+    {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},   /* color availability */
+    0L, amii_init_nhwindows,
     amii_player_selection, amii_askname, amii_get_nh_event,
     amii_exit_nhwindows, amii_suspend_nhwindows, amii_resume_nhwindows,
     amii_create_nhwindow, amii_clear_nhwindow, amii_display_nhwindow,
@@ -60,7 +62,9 @@ struct window_procs amii_procs = {
  * a shared library to allow the executable to be smaller.
  */
 struct window_procs amiv_procs = {
-    "amitile", WC_COLOR | WC_HILITE_PET | WC_INVERSE, 0L, amii_init_nhwindows,
+    "amitile", WC_COLOR | WC_HILITE_PET | WC_INVERSE,
+    {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},   /* color availability */
+    0L, amii_init_nhwindows,
     amii_player_selection, amii_askname, amii_get_nh_event,
     amii_exit_nhwindows, amii_suspend_nhwindows, amii_resume_nhwindows,
     amii_create_nhwindow, amii_clear_nhwindow, amii_display_nhwindow,
@@ -451,7 +455,7 @@ amii_player_selection()
     if (validrole(flags.initrole))
 	return;
     else {
-	flags.initrole=randrole();
+	flags.initrole = randrole(FALSE);
 	return;
     }
 #if 0 /* Don't query the user ... instead give random character -jhsa */
@@ -518,7 +522,7 @@ amii_player_selection()
 		}
 		else if( code == ' ' || code == '\n' || code == '\r' )
 		{
-		    flags.initrole = randrole();
+		    flags.initrole = randrole(FALSE);
 #if 0 /* OBSOLETE */
 		    strcpy( pl_character, roles[ rnd( 11 ) ] );
 #endif
@@ -543,7 +547,7 @@ amii_player_selection()
 		switch( gd->GadgetID )
 		{
 		case 1: /* Random Character */
-		    flags.initrole = randrole();
+		    flags.initrole = randrole(FALSE);
 #if 0 /* OBSOLETE */
 		    strcpy( pl_character, roles[ rnd( 11 ) ] );
 #endif
@@ -1371,7 +1375,7 @@ amii_player_selection()
                                        flags.initalign, PICK_RANDOM);
             if (flags.initrole < 0) {
                 amii_putstr(WIN_MESSAGE, 0, "Incompatible role!");
-                flags.initrole = randrole();
+                flags.initrole = randrole(FALSE);
             }
         } else {
             /* Prompt for a role */
@@ -1407,7 +1411,7 @@ amii_player_selection()
             any.a_int = pick_role(flags.initrace, flags.initgend,
                                   flags.initalign, PICK_RANDOM) + 1;
             if (any.a_int == 0) /* must be non-zero */
-                any.a_int = randrole() + 1;
+                any.a_int = randrole(FALSE) + 1;
             add_menu(win, NO_GLYPH, &any, '*', 0, ATR_NONE, "Random",
                      MENU_UNSELECTED);
             any.a_int = i + 1; /* must be non-zero */

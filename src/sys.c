@@ -1,4 +1,4 @@
-/* NetHack 3.6	sys.c	$NHDT-Date: 1448241785 2015/11/23 01:23:05 $  $NHDT-Branch: master $:$NHDT-Revision: 1.35 $ */
+/* NetHack 3.6	sys.c	$NHDT-Date: 1575665952 2019/12/06 20:59:12 $  $NHDT-Branch: NetHack-3.6 $:$NHDT-Revision: 1.46 $ */
 /* Copyright (c) Kenneth Lorber, Kensington, Maryland, 2008. */
 /* NetHack may be freely redistributed.  See license for details. */
 
@@ -63,7 +63,7 @@ sys_early_init()
     /* panic options */
     sysopt.gdbpath = dupstr(GDBPATH);
     sysopt.greppath = dupstr(GREPPATH);
-#ifdef BETA
+#if (NH_DEVEL_STATUS != NH_STATUS_RELEASED)
     sysopt.panictrace_gdb = 1;
 #ifdef PANICTRACE_LIBC
     sysopt.panictrace_libc = 2;
@@ -80,6 +80,10 @@ sys_early_init()
     sysopt.check_plname = 0;
     sysopt.seduce = 1; /* if it's compiled in, default to on */
     sysopt_seduce_set(sysopt.seduce);
+    sysopt.accessibility = 0;
+#ifdef WIN32
+    sysopt.portable_device_paths = 0;
+#endif
     return;
 }
 
@@ -114,14 +118,13 @@ sysopt_release()
         free((genericptr_t) sysopt.genericusers);
         sysopt.genericusers = (char *) 0;
     }
-#ifdef PANICTRACE
     if (sysopt.gdbpath) {
         free((genericptr_t) sysopt.gdbpath); sysopt.gdbpath = (char *) 0;
     }
     if (sysopt.greppath) {
         free((genericptr_t) sysopt.greppath); sysopt.greppath = (char *) 0;
     }
-#endif
+
     /* this one's last because it might be used in panic feedback, although
        none of the preceding ones are likely to trigger a controlled panic */
     if (sysopt.fmtd_wizard_list) {
@@ -131,12 +134,16 @@ sysopt_release()
     return;
 }
 
-extern struct attack sa_yes[NATTK];
-extern struct attack sa_no[NATTK];
+extern const struct attack sa_yes[NATTK];
+extern const struct attack sa_no[NATTK];
 
 void
 sysopt_seduce_set(int val)
 {
+#if 0
+/*
+ * Attack substitution is now done on the fly in getmattk(mhitu.c).
+ */
     struct attack *setval = val ? sa_yes : sa_no;
     int x;
 
@@ -144,6 +151,9 @@ sysopt_seduce_set(int val)
         mons[PM_INCUBUS].mattk[x] = setval[x];
         mons[PM_SUCCUBUS].mattk[x] = setval[x];
     }
+#else
+    nhUse(val);
+#endif /*0*/
     return;
 }
 

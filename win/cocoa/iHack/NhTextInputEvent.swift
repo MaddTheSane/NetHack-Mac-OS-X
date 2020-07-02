@@ -24,10 +24,10 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 import Foundation
 
-final class NhTextInputEvent : NhEvent {
-	@objc let text: String
+@objcMembers final class NhTextInputEvent : NhEvent {
+	let text: String
 	
-	@objc init(text t: String) {
+	init(text t: String) {
 		text = t
 		super.init(key: -1, mod: -1, x: -1, y: -1)
 	}

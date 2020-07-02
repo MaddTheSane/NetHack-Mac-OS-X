@@ -43,7 +43,7 @@ static inline void Swift_panic(const char* str)
 NS_SWIFT_NAME(objectToGlyph(_:))
 static inline int SwiftObjToGlyph(struct obj *object)
 {
-	return obj_to_glyph(object);
+	return obj_to_glyph(object, rn2);
 }
 
 static inline short glyphToTile(int glyph)

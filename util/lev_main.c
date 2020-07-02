@@ -579,7 +579,7 @@ vadd_opvars(sp_lev *sp, const char *fmt, va_list the_args)
         {
             struct opvar *ov = New(struct opvar);
 
-            set_opvar_int(ov, (long) va_arg(la, int));
+            set_opvar_int(ov, va_arg(the_args, int));
             add_opcode(sp, SPO_PUSH, ov);
             break;
         }

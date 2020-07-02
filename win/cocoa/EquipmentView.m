@@ -45,7 +45,7 @@
 {
 	NSImage * image = nil;
 	if ( item ) {
-		int glyph = obj_to_glyph(item);
+		int glyph = obj_to_glyph(item, rn2);
 		if ( glyph != NO_GLYPH ) {
 			image = [[TileSet instance] imageForGlyph:glyph enabled:YES];
 			char * description = doname(item);

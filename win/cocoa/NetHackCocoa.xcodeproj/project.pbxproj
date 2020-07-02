@@ -644,6 +644,10 @@
 		550D8DBE1C7B942E00542FA8 /* geoduck12x20.png in Resources */ = {isa = PBXBuildFile; fileRef = 550D8DBB1C7B942E00542FA8 /* geoduck12x20.png */; };
 		550D8DBF1C7B942E00542FA8 /* geoduck24x40.png in Resources */ = {isa = PBXBuildFile; fileRef = 550D8DBC1C7B942E00542FA8 /* geoduck24x40.png */; };
 		550D8DC01C7B942E00542FA8 /* geoduck24x40.png in Resources */ = {isa = PBXBuildFile; fileRef = 550D8DBC1C7B942E00542FA8 /* geoduck24x40.png */; };
+		5510696724ADBC27004C2486 /* isaac64.c in Sources */ = {isa = PBXBuildFile; fileRef = 5510696624ADBC27004C2486 /* isaac64.c */; };
+		5510696824ADBC27004C2486 /* isaac64.c in Sources */ = {isa = PBXBuildFile; fileRef = 5510696624ADBC27004C2486 /* isaac64.c */; };
+		5510696A24ADBF17004C2486 /* epitaph.txt in Resources */ = {isa = PBXBuildFile; fileRef = 5510696924ADBF17004C2486 /* epitaph.txt */; };
+		5510696B24ADBF17004C2486 /* epitaph.txt in Resources */ = {isa = PBXBuildFile; fileRef = 5510696924ADBF17004C2486 /* epitaph.txt */; };
 		5519D0AD1C264E0E001654FD /* NhYnQuestion.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5519D0AC1C264E0E001654FD /* NhYnQuestion.swift */; };
 		5519D0AE1C264E0E001654FD /* NhYnQuestion.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5519D0AC1C264E0E001654FD /* NhYnQuestion.swift */; };
 		552E7DA01A79DCA700D18C9E /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 552E7D9F1A79DCA700D18C9E /* Images.xcassets */; };
@@ -1255,6 +1259,9 @@
 		29B97325FDCFA39411CA2CEA /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = /System/Library/Frameworks/Foundation.framework; sourceTree = "<absolute>"; };
 		550D8DBB1C7B942E00542FA8 /* geoduck12x20.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = geoduck12x20.png; sourceTree = "<group>"; };
 		550D8DBC1C7B942E00542FA8 /* geoduck24x40.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = geoduck24x40.png; sourceTree = "<group>"; };
+		5510696524ADBBF8004C2486 /* isaac64.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = isaac64.h; sourceTree = "<group>"; };
+		5510696624ADBC27004C2486 /* isaac64.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = isaac64.c; sourceTree = "<group>"; };
+		5510696924ADBF17004C2486 /* epitaph.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = epitaph.txt; sourceTree = "<group>"; };
 		551980FE1D8F12DC008AA881 /* dgn_comp.l */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.lex; path = dgn_comp.l; sourceTree = "<group>"; };
 		551980FF1D8F12DC008AA881 /* dgn_comp.y */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.yacc; path = dgn_comp.y; sourceTree = "<group>"; };
 		551981001D8F12DC008AA881 /* dgn_main.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = dgn_main.c; sourceTree = "<group>"; };
@@ -1445,6 +1452,7 @@
 				02447B9311B8C821008CB9C7 /* earth.lev */,
 				0224CB8611B8A7BE00FC2199 /* endgame.des */,
 				555B7B631C18C1B700A24D24 /* engrave */,
+				5510696924ADBF17004C2486 /* epitaph.txt */,
 				555B7B661C18C1C500A24D24 /* epitaph */,
 				02447B9411B8C821008CB9C7 /* fakewiz1.lev */,
 				02447B9511B8C821008CB9C7 /* fakewiz2.lev */,
@@ -1602,6 +1610,7 @@
 		0224CBF611B8A92500FC2199 /* include */ = {
 			isa = PBXGroup;
 			children = (
+				5510696524ADBBF8004C2486 /* isaac64.h */,
 				0224CBF711B8A92500FC2199 /* align.h */,
 				0224CBF811B8A92500FC2199 /* amiconf.h */,
 				0224CBF911B8A92500FC2199 /* artifact.h */,
@@ -1707,6 +1716,7 @@
 		0224CC5A11B8A92500FC2199 /* src */ = {
 			isa = PBXGroup;
 			children = (
+				5510696624ADBC27004C2486 /* isaac64.c */,
 				0224CC5B11B8A92500FC2199 /* allmain.c */,
 				0224CC5C11B8A92500FC2199 /* alloc.c */,
 				0224CC5D11B8A92500FC2199 /* apply.c */,
@@ -2448,6 +2458,7 @@
 				0212828D14F6E6240046D56F /* Sam-filb.lev in Resources */,
 				0212828E14F6E6240046D56F /* Sam-goal.lev in Resources */,
 				0212828F14F6E6240046D56F /* Sam-loca.lev in Resources */,
+				5510696B24ADBF17004C2486 /* epitaph.txt in Resources */,
 				0212829014F6E6240046D56F /* Sam-strt.lev in Resources */,
 				0212829114F6E6240046D56F /* sanctum.lev in Resources */,
 				0212829214F6E6240046D56F /* soko1-1.lev in Resources */,
@@ -2648,6 +2659,7 @@
 				02447C3A11B8C821008CB9C7 /* Sam-filb.lev in Resources */,
 				02447C3B11B8C821008CB9C7 /* Sam-goal.lev in Resources */,
 				02447C3C11B8C821008CB9C7 /* Sam-loca.lev in Resources */,
+				5510696A24ADBF17004C2486 /* epitaph.txt in Resources */,
 				02447C3D11B8C821008CB9C7 /* Sam-strt.lev in Resources */,
 				02447C3E11B8C821008CB9C7 /* sanctum.lev in Resources */,
 				02447C3F11B8C821008CB9C7 /* soko1-1.lev in Resources */,
@@ -2746,6 +2758,7 @@
 				"$(SRCROOT)/../../util/panic.c",
 				"$(SRCROOT)/../../src/alloc.c",
 				"$(SRCROOT)/../../include/config.h",
+				"$(SRCROOT)/../../util/lev_main.c",
 			);
 			outputPaths = (
 				"$(SRCROOT)/../../include/lev_comp.h",
@@ -3077,6 +3090,7 @@
 				0212832514F6E6240046D56F /* rnd.c in Sources */,
 				0212832614F6E6240046D56F /* role.c in Sources */,
 				0212832714F6E6240046D56F /* rumors.c in Sources */,
+				5510696824ADBC27004C2486 /* isaac64.c in Sources */,
 				0212832814F6E6240046D56F /* save.c in Sources */,
 				0212832914F6E6240046D56F /* shk.c in Sources */,
 				0212832A14F6E6240046D56F /* shknam.c in Sources */,
@@ -3265,6 +3279,7 @@
 				0224CE1011B8A92600FC2199 /* rnd.c in Sources */,
 				0224CE1111B8A92600FC2199 /* role.c in Sources */,
 				0224CE1211B8A92600FC2199 /* rumors.c in Sources */,
+				5510696724ADBC27004C2486 /* isaac64.c in Sources */,
 				0224CE1311B8A92600FC2199 /* save.c in Sources */,
 				0224CE1411B8A92600FC2199 /* shk.c in Sources */,
 				0224CE1511B8A92600FC2199 /* shknam.c in Sources */,

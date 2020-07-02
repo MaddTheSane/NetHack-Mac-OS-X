@@ -255,7 +255,7 @@ static struct permonst * lookat(int x, int y, char * buf, char * monbuf)
 		else if (is_lava(x,y))
 			Strcat(buf, " in molten lava");	/* [can this ever happen?] */
     } else if (glyph_is_trap(glyph)) {
-		int tnum = what_trap(glyph_to_trap(glyph));
+		int tnum = what_trap(glyph_to_trap(glyph), rn2_on_display_rng);
 		Strcpy(buf, defsyms[trap_to_defsym(tnum)].explanation);
     } else if(!glyph_is_cmap(glyph)) {
 		Strcpy(buf,"dark part of a room");

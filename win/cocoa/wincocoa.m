@@ -66,6 +66,7 @@ WC_ASCII_MAP|WC_TILED_MAP|
 WC_FONT_MAP|WC_TILE_FILE|WC_TILE_WIDTH|WC_TILE_HEIGHT|
 WC_PLAYER_SELECTION|WC_SPLASH_SCREEN,
 0L,
+	{false, false,false,false,false,false,false,false, false, false, false, false, false,false,false,false},
 cocoa_init_nhwindows,
 cocoa_player_selection,
 cocoa_askname,
@@ -774,7 +775,7 @@ static int cocoa_role_select(char *pbuf, char *plbuf)
 	any.a_int = pick_role(flags.initrace, flags.initgend,
 						  flags.initalign, PICK_RANDOM)+1;
 	if (any.a_int == 0)	/* must be non-zero */
-	    any.a_int = randrole()+1;
+	    any.a_int = randrole(TRUE)+1;
 		add_menu(win, NO_GLYPH, &any , '*', 0, ATR_NONE,
 				 "Random", MENU_UNSELECTED);
 		any.a_int = i+1;	/* must be non-zero */

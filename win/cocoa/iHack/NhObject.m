@@ -60,7 +60,7 @@
 		if (lines.count == 2) {
 			detail = [lines[1] copy];
 		}
-		glyph = obj_to_glyph(obj);
+		glyph = obj_to_glyph(obj, rn2);
 	}
 	return self;
 }

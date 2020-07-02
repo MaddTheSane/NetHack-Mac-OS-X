@@ -223,7 +223,7 @@ NSStringEncoding	codepage437encoding;
 							// use ASCII text
 							int ochar, ocolor;
 							unsigned int special;
-							mapglyph(glyph, &ochar, &ocolor, &special, i, j);
+							mapglyph(glyph, &ochar, &ocolor, &special, i, j, 0);
 							
 							if ( ochar == 0x1 ) {
 								// smiley face in rogue level when using IBMgraphics
